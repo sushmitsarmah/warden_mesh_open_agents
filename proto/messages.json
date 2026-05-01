@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Target": {
+      "type": "object",
+      "required": ["id", "kind", "discoveredAt", "priority"],
+      "properties": {
+        "id": { "type": "string", "description": "uuid v4" },
+        "kind": { "enum": ["onchain", "github", "immunefi"] },
+        "chainId": { "type": "integer" },
+        "address": { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
+        "repo": { "type": "string" },
+        "commitSha": { "type": "string" },
+        "sourceUrl": { "type": "string" },
+        "discoveredAt": { "type": "string", "format": "date-time" },
+        "priority": { "type": "number", "minimum": 0, "maximum": 100 },
+        "tvlUsd": { "type": "number" }
+      }
+    },
+    "Finding": {
+      "type": "object",
+      "required": ["id", "targetId", "category", "severity", "tools"],
+      "properties": {
+        "id": { "type": "string" },
+        "targetId": { "type": "string" },
+        "category": { "type": "string", "description": "e.g. reentrancy, unchecked-call" },
+        "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+        "tools": {
+          "type": "array",
+          "items": { "enum": ["aderyn", "slither"] },
+          "minItems": 1
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "lineStart": { "type": "integer" },
+            "lineEnd": { "type": "integer" }
+          }
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "VerifiedExploit": {
+      "type": "object",
+      "required": ["id", "findingId", "forgePath", "drainAmountUsd", "verifiedAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "findingId": { "type": "string" },
+        "forgePath": { "type": "string" },
+        "drainAmountUsd": { "type": "number" },
+        "blockNumber": { "type": "integer" },
+        "differentialPassed": { "type": "boolean" },
+        "verifiedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Disclosure": {
+      "type": "object",
+      "required": ["id", "exploitId", "lane", "publishedAt"],
+      "properties": {
+        "id": { "type": "string" },
+        "exploitId": { "type": "string" },
+        "lane": { "enum": ["bounty", "rescue"] },
+        "x402Url": { "type": "string" },
+        "txHash": { "type": "string" },
+        "publishedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

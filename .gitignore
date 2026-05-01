@@ -1,0 +1,12 @@
+.env
+*.env.local
+node_modules/
+target/
+contracts/out/
+contracts/cache/
+contracts/lib/
+services/*/bin/
+*.log
+.DS_Store
+/tmp/
+/test-fixtures/dvd/
