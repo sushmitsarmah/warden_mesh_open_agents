@@ -3,8 +3,6 @@ package scout
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"os"
 	"time"
 

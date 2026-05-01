@@ -1,7 +1,6 @@
 package scout
 
 import (
-	"fmt"
 	"math"
 	"time"
 

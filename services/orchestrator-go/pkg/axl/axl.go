@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/local/swarm/orchestrator/pkg/messages"
 )
 
 // Node is a thin AXL wrapper. Replace with real SDK when available.
