@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -8,18 +9,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/local/swarm/orchestrator/pkg/axl"
+	// TODO: uncomment when module resolution is set up
+	// "github.com/local/swarm/orchestrator/pkg/axl"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	node, _ := axl.NewNode(nil)
-	defer node.Close()
+	// TODO: uncomment when module resolution is set up
+	// node, _ := axl.NewNode(nil)
+	// defer node.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: wire up AXL subscription and WebSocket proxy
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

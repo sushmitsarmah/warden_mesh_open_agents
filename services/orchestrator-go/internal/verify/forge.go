@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/local/swarm/orchestrator/pkg/messages"
 )
 
 type TestResult struct {

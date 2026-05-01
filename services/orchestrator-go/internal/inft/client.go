@@ -2,16 +2,15 @@ package inft
 
 import (
 	"context"
-	"fmt"
-	"math/big"
-	"os"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
+
+// SwarmINFT is a placeholder — generate bindings from SwarmINFT.sol ABI
+type SwarmINFT struct{}
 
 type Client struct {
 	mu         sync.Mutex
@@ -37,9 +36,7 @@ func NewClient(rpcURL, contractAddr, privateKeyHex string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	addr := common.HexToAddress(contractAddr)
-	// Placeholder: generate bindings from ABI
-	_ = addr
+	_ = contractAddr
 	return &Client{
 		transactor: transactor,
 		client:     cl,
@@ -49,16 +46,17 @@ func NewClient(rpcURL, contractAddr, privateKeyHex string) (*Client, error) {
 func (c *Client) RecordDisclosure(ctx context.Context, tokenID, bountyUsd int64, memoryDelta [32]byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// c.contract.RecordDisclosure(c.transactor, big.NewInt(tokenID), big.NewInt(bountyUsd), memoryDelta)
+	_ = tokenID
+	_ = bountyUsd
+	_ = memoryDelta
 	return nil
 }
 
 func (c *Client) IsPaused() (bool, error) {
-	// return c.contract.State(nil, big.NewInt(1))
 	return false, nil
 }
 
 func (c *Client) IsAuthorized(protocol string) bool {
-	// return c.contract.AuthorizedProtocols(nil, common.HexToAddress(protocol))
+	_ = protocol
 	return false
 }

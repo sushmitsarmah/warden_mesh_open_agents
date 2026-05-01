@@ -3,7 +3,6 @@ package report
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"text/template"

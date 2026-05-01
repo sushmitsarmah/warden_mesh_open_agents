@@ -2,8 +2,6 @@ package disclosure
 
 import (
 	"time"
-
-	"github.com/local/swarm/orchestrator/pkg/messages"
 )
 
 type Window struct {

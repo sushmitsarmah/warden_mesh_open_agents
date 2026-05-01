@@ -3,7 +3,6 @@ package safety
 import (
 	"context"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/local/swarm/orchestrator/internal/inft"
