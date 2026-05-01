@@ -29,10 +29,9 @@ func main() {
 	}
 	defer node.Close()
 
-	llmClient := llm.NewAnthropicClient(cfg.LLMKey, cfg.LLMModel)
-	_ = llmClient
+	llmClient := llm.NewOpenAICompatibleClient(cfg.LLMBaseURL, cfg.LLMKey, cfg.LLMModel)
 
-	o := orchestrator.New(node)
+	o := orchestrator.New(node, llmClient)
 	if err := o.Run(ctx); err != nil {
 		slog.Error("orchestrator", "err", err)
 	}

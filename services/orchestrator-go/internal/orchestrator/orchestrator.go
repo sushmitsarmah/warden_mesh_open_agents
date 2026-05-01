@@ -5,16 +5,18 @@ import (
 	"encoding/json"
 	"log/slog"
 
+	"github.com/local/swarm/orchestrator/internal/llm"
 	"github.com/local/swarm/orchestrator/pkg/axl"
 	"github.com/local/swarm/orchestrator/pkg/messages"
 )
 
 type Orchestrator struct {
-	node *axl.Node
+	node     *axl.Node
+	llmClient llm.Client
 }
 
-func New(node *axl.Node) *Orchestrator {
-	return &Orchestrator{node: node}
+func New(node *axl.Node, llmClient llm.Client) *Orchestrator {
+	return &Orchestrator{node: node, llmClient: llmClient}
 }
 
 func (o *Orchestrator) Run(ctx context.Context) error {
