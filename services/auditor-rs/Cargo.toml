@@ -15,6 +15,10 @@ path = "src/main.rs"
 name = "roundtrip-check"
 path = "src/bin/roundtrip-check.rs"
 
+[[bin]]
+name = "test-analyzers"
+path = "src/bin/test-analyzers.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
