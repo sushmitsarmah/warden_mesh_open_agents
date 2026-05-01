@@ -1,0 +1,5 @@
+repos:
+  - aave/aave-v3-core
+  - Uniswap/v4-core
+  - compound-finance/compound-protocol
+poll_interval_seconds: 60
