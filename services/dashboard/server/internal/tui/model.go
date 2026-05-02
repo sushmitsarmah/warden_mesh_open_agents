@@ -173,15 +173,40 @@ type Model struct {
 	tickCount   int
 	stats       PipelineStats
 	events      []EventLine // max 50
+
+	// Config tab: repo management
+	repoCfg       *RepoConfig   // loaded from repos.yaml
+	repoCfgPath   string        // path to repos.yaml
+	repoCursor    int           // selected repo in config list
+	addingRepo    bool          // true when user is typing a new repo
+	confirmDelete bool          // true when waiting for delete confirmation
+	repoInput     string        // current text in add form
+	repoErr       string        // error message to display in config tab
 }
 
 func NewModel() Model {
-	return Model{
-		tabs:     []string{"Overview", "Logs", "Services", "Charts"},
+	m := Model{
+		tabs:     []string{"Overview", "Logs", "Services", "Charts", "Config"},
 		services: defaultServices(),
 		selected: 0,
 		msgCh:    make(chan tea.Msg, 256),
 	}
+
+	// Try to locate the scout-go repo config relative to the dashboard binary.
+	// The dashboard's CWD is assumed to be at repo root or services/dashboard/server.
+	for _, base := range []string{"../../scout-go", "services/scout-go", "scout-go"} {
+		p := repoConfigPath(base)
+		if cfg, err := loadRepoConfig(p); err == nil {
+			m.repoCfg = cfg
+			m.repoCfgPath = p
+			break
+		}
+	}
+	if m.repoCfg == nil {
+		m.repoCfg = &RepoConfig{Repos: []string{}, PollIntervalSeconds: 60}
+	}
+
+	return m
 }
 
 func (m Model) Init() tea.Cmd {

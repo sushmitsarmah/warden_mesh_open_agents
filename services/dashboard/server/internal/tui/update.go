@@ -30,15 +30,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = 2
 		case "4":
 			m.activeTab = 3
+		case "5":
+			m.activeTab = 4
 
 		case "up", "k":
 			if m.activeTab == 2 {
 				m.selected = max(0, m.selected-1)
+			} else if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
+				m.repoCursor = max(0, m.repoCursor-1)
 			}
 
 		case "down", "j":
 			if m.activeTab == 2 {
 				m.selected = min(len(m.services)-1, m.selected+1)
+			} else if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
+				repoCount := len(m.repoCfg.Repos)
+				if repoCount == 0 {
+					m.repoCursor = 0
+				} else {
+					m.repoCursor = min(repoCount-1, m.repoCursor+1)
+				}
 			}
 
 		case "[", "h":
@@ -51,21 +62,88 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.logViewSvc = (m.logViewSvc + 1) % len(m.services)
 			}
 
-		case "enter", "s":
-			m.toggleSelectedService()
+		case "enter":
+			if m.activeTab == 4 {
+				if m.confirmDelete {
+					m.confirmDelete = false
+					m.removeSelectedRepo()
+				} else if m.addingRepo {
+					m.addNewRepo()
+				}
+			} else {
+				m.toggleSelectedService()
+			}
+
+		case "s":
+			if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+				m.toggleSelectedService()
+			}
 
 		case "a":
-			m.startAllServices()
+			if m.activeTab == 4 && !m.confirmDelete {
+				m.addingRepo = true
+				m.repoInput = ""
+				m.repoErr = ""
+			} else if m.activeTab != 4 || !m.confirmDelete {
+				m.startAllServices()
+			}
 
 		case "x":
-			m.stopAllServices()
+			if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
+				if len(m.repoCfg.Repos) > 0 {
+					m.confirmDelete = true
+					m.repoErr = ""
+				}
+			} else if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+				m.stopAllServices()
+			}
 
 		case "r":
-			m.restartSelectedService()
+			if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
+				m.reloadRepoConfig()
+			} else if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+				m.restartSelectedService()
+			}
+
+		case "y":
+			if m.confirmDelete {
+				m.confirmDelete = false
+				m.removeSelectedRepo()
+			}
+
+		case "n":
+			if m.confirmDelete {
+				m.confirmDelete = false
+				m.repoErr = ""
+			}
+
+		case "esc":
+			if m.addingRepo {
+				m.addingRepo = false
+				m.repoInput = ""
+				m.repoErr = ""
+			} else if m.confirmDelete {
+				m.confirmDelete = false
+				m.repoErr = ""
+			}
 
 		case "ctrl+l":
 			if m.activeTab == 1 {
 				m.services[m.logViewSvc].Logs = NewRingBuffer(500)
+			}
+
+		case "backspace":
+			if m.addingRepo {
+				if len(m.repoInput) > 0 {
+					m.repoInput = m.repoInput[:len(m.repoInput)-1]
+				}
+			}
+
+		default:
+			if m.addingRepo {
+				if msg.Type == tea.KeyRunes {
+					m.repoInput += string(msg.Runes)
+				}
 			}
 		}
 
@@ -183,6 +261,74 @@ func (m *Model) stopAllServices() {
 func (m *Model) shutdownAll() {
 	m.stopAllServices()
 	time.Sleep(300 * time.Millisecond)
+}
+
+// ── Repo config helpers ──────────────────────────────────────────────
+
+func (m *Model) addNewRepo() {
+	input := strings.TrimSpace(m.repoInput)
+	if input == "" {
+		m.repoErr = "repo cannot be empty"
+		return
+	}
+	// Basic validation: must be owner/name format
+	parts := strings.Split(input, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		m.repoErr = "invalid format (use owner/name)"
+		return
+	}
+	// Dedupe
+	for _, r := range m.repoCfg.Repos {
+		if r == input {
+			m.repoErr = "repo already watched"
+			return
+		}
+	}
+	m.repoCfg.Repos = append(m.repoCfg.Repos, input)
+	if m.repoCfgPath != "" {
+		if err := saveRepoConfig(m.repoCfgPath, m.repoCfg); err != nil {
+			m.repoErr = "save failed: " + err.Error()
+			return
+		}
+	}
+	m.addingRepo = false
+	m.repoInput = ""
+	m.repoErr = ""
+	m.addEvent("Dashboard", "added repo "+input, "target")
+}
+
+func (m *Model) removeSelectedRepo() {
+	if m.repoCursor < 0 || m.repoCursor >= len(m.repoCfg.Repos) {
+		return
+	}
+	removed := m.repoCfg.Repos[m.repoCursor]
+	m.repoCfg.Repos = append(m.repoCfg.Repos[:m.repoCursor], m.repoCfg.Repos[m.repoCursor+1:]...)
+	if m.repoCfgPath != "" {
+		if err := saveRepoConfig(m.repoCfgPath, m.repoCfg); err != nil {
+			m.repoErr = "save failed: " + err.Error()
+			return
+		}
+	}
+	if m.repoCursor >= len(m.repoCfg.Repos) && len(m.repoCfg.Repos) > 0 {
+		m.repoCursor = len(m.repoCfg.Repos) - 1
+	}
+	m.addEvent("Dashboard", "removed repo "+removed, "target")
+}
+
+func (m *Model) reloadRepoConfig() {
+	if m.repoCfgPath == "" {
+		m.repoErr = "no config path known"
+		return
+	}
+	cfg, err := loadRepoConfig(m.repoCfgPath)
+	if err != nil {
+		m.repoErr = "reload failed: " + err.Error()
+		return
+	}
+	m.repoCfg = cfg
+	m.repoCursor = 0
+	m.repoErr = ""
+	m.addEvent("Dashboard", "reloaded repo config", "target")
 }
 
 func (m *Model) startService(svc *Service) {

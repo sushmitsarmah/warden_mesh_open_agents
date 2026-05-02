@@ -215,6 +215,8 @@ func (m Model) View() string {
 		b.WriteString(m.renderServices(contentHeight))
 	case 3:
 		b.WriteString(m.renderCharts(contentHeight))
+	case 4:
+		b.WriteString(m.renderConfig(contentHeight))
 	}
 
 	b.WriteString("\n")
@@ -610,7 +612,7 @@ func (m Model) renderServices(h int) string {
 
 func (m Model) renderFooter() string {
 	hints := []string{
-		keyStyle.Render("1-4") + dimStyle.Render(" tabs"),
+		keyStyle.Render("1-5") + dimStyle.Render(" tabs"),
 		keyStyle.Render("←→/Tab") + dimStyle.Render(" switch"),
 		keyStyle.Render("s") + dimStyle.Render(" start/stop"),
 		keyStyle.Render("a") + dimStyle.Render(" start all"),
@@ -620,6 +622,88 @@ func (m Model) renderFooter() string {
 		keyStyle.Render("q") + dimStyle.Render(" quit"),
 	}
 	return hintStyle.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Tab 5: Config ─────────────────────────────────────────────────────
+
+func (m Model) renderConfig(h int) string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("WATCHED REPOSITORIES")
+	pathLine := dimStyle.Render("  config: ")
+	if m.repoCfgPath != "" {
+		pathLine += lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Render(m.repoCfgPath)
+	} else {
+		pathLine += lipgloss.NewStyle().Foreground(colorRed).Render("(file not found)")
+	}
+	b.WriteString(title + "\n" + pathLine + "\n\n")
+
+	if m.addingRepo {
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(colorGreen).Render("  Add new repo  ") + "\n")
+		b.WriteString(dimStyle.Render("  format: owner/name  \n\n"))
+		inputBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorGreen).
+			Width(m.width - 8).
+			Padding(0, 1).
+			Render(m.repoInput + "█")
+		b.WriteString("  " + inputBox + "\n")
+		if m.repoErr != "" {
+			b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  " + m.repoErr) + "\n")
+		}
+		b.WriteString(dimStyle.Render("  Enter to confirm  •  Esc to cancel") + "\n")
+		return logPaneStyle.Render(b.String())
+	}
+
+	if m.confirmDelete {
+		if m.repoCursor >= 0 && m.repoCursor < len(m.repoCfg.Repos) {
+			repo := m.repoCfg.Repos[m.repoCursor]
+			warn := lipgloss.NewStyle().Foreground(colorRed).Bold(true).Render("  Remove " + repo + "?")
+			b.WriteString(warn + "\n\n")
+			b.WriteString(dimStyle.Render("  y/Enter to confirm  •  n/Esc to cancel") + "\n")
+		}
+		return logPaneStyle.Render(b.String())
+	}
+
+	// Repo list
+	if len(m.repoCfg.Repos) == 0 {
+		b.WriteString(dimStyle.Render("  (no repos configured)\n"))
+	} else {
+		b.WriteString(dimStyle.Render("  #  repo\n"))
+		for i, r := range m.repoCfg.Repos {
+			var prefix string
+			if i == m.repoCursor {
+				prefix = lipgloss.NewStyle().Foreground(colorBlue).Bold(true).Render("▶")
+			} else {
+				prefix = " "
+			}
+			num := fmt.Sprintf("%2d", i+1)
+			b.WriteString(fmt.Sprintf(" %s %s  %s\n", prefix, dimStyle.Render(num), r))
+		}
+	}
+
+	b.WriteString("\n")
+	if m.repoErr != "" {
+		b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  "+m.repoErr) + "\n")
+	}
+
+	var hints []string
+	if m.confirmDelete {
+		hints = []string{
+			keyStyle.Render("y/Enter") + dimStyle.Render(" confirm"),
+			keyStyle.Render("n/Esc") + dimStyle.Render(" cancel"),
+		}
+	} else {
+		hints = []string{
+			keyStyle.Render("↑/↓") + dimStyle.Render(" select"),
+			keyStyle.Render("a") + dimStyle.Render(" add"),
+			keyStyle.Render("x") + dimStyle.Render(" remove"),
+			keyStyle.Render("r") + dimStyle.Render(" reload"),
+		}
+	}
+	b.WriteString(hintStyle.Render("  " + strings.Join(hints, "  ")))
+
+	return logPaneStyle.Render(b.String())
 }
 
 // ── Tab 4: Charts ─────────────────────────────────────────────────────

@@ -1,5 +1,10 @@
 repos:
-  - aave/aave-v3-core
-  - Uniswap/v4-core
-  - compound-finance/compound-protocol
+    - aave/aave-v3-core
+    - Uniswap/v4-core
+    - compound-finance/compound-protocol
+    - makerdao/dss
+    - curvefi/curve-contract
+    - dydxprotocol/v4-chain
+    - gmx-io/gmx-synthetics
+    - rocket-pool/rocketpool
 poll_interval_seconds: 60
