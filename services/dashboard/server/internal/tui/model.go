@@ -80,7 +80,7 @@ func defaultServices() []*Service {
 	return []*Service{
 		{Index: 0, Name: "AXL Node", Cmd: []string{"./node", "-config", "node-config.json"}, Dir: "../../../axl", Status: "stopped", Logs: NewRingBuffer(500)},
 		{Index: 1, Name: "Scout", Cmd: []string{"go", "run", "./cmd"}, Dir: "../../scout-go", Status: "stopped", Logs: NewRingBuffer(500)},
-		{Index: 2, Name: "Auditor", Cmd: []string{"cargo", "run", "--release"}, Dir: "../../auditor-rs", Status: "stopped", Logs: NewRingBuffer(500)},
+		{Index: 2, Name: "Auditor", Cmd: []string{"cargo", "run", "--release", "--bin", "auditor"}, Dir: "../../auditor-rs", Status: "stopped", Logs: NewRingBuffer(500)},
 		{Index: 3, Name: "Orchestrator", Cmd: []string{"go", "run", "./cmd"}, Dir: "../../orchestrator-go", Status: "stopped", Logs: NewRingBuffer(500)},
 	}
 }
