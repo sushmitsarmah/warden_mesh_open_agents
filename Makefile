@@ -1,5 +1,5 @@
 .PHONY: build test clean scout auditor orchestrator contracts \
-  roundtrip test-analyzers test-exploit-gen setup check-tools
+  roundtrip test-analyzers test-exploit-gen setup check-tools dashboard
 
 # ── Self-healing setup ──────────────────────────────────────────────
 setup: check-tools
@@ -10,7 +10,7 @@ check-tools:
 	@bash infra/scripts/check-tools.sh
 
 # ── Main build ──────────────────────────────────────────────────────
-build: check-tools scout auditor orchestrator contracts
+build: check-tools scout auditor orchestrator contracts dashboard
 	@echo "All components built successfully."
 
 scout:
@@ -24,6 +24,13 @@ auditor:
 
 contracts:
 	cd contracts && forge build
+
+dashboard:
+	cd services/dashboard/server && go build -o bin/dashboard .
+
+# ── Run ─────────────────────────────────────────────────────────────
+run-dashboard:
+	cd services/dashboard/server && go run .
 
 # ── Tests ───────────────────────────────────────────────────────────
 test: check-tools

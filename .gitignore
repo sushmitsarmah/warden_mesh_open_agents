@@ -6,6 +6,7 @@ contracts/out/
 contracts/cache/
 contracts/lib/
 services/*/bin/
+bin/
 *.log
 .DS_Store
 /tmp/

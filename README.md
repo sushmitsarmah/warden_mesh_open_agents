@@ -190,14 +190,34 @@ The orchestrator will:
 - Record disclosure on 0G iNFT (if configured)
 - Publish to `disclosure/published`
 
-### 7. Run the Dashboard
+### 7. Run the TUI Dashboard
 
 ```bash
 cd services/dashboard/server
 go run .
+# or simply: make run-dashboard
 ```
 
-HTTP server on `:8080` with `/health` and `/ws` endpoints. Subscribe to AXL topics and logs flows to stdout.
+A beautiful terminal UI opens with **3 tabs**:
+- **Overview** — Live pipeline stats, agent statuses
+- **Logs** — Real-time log stream of selected service (500-line ring buffer)
+- **Services** — Start/stop/restart any agent from the terminal
+
+**Keybindings:**
+| Key | Action |
+|---|---|
+| `1-3` / `Tab` / `←→` | Switch tabs |
+| `↑↓` / `j/k` | Select service (Services tab) |
+| `Enter` / `s` | Toggle start/stop selected service |
+| `a` | Start ALL services |
+| `x` | Stop ALL services |
+| `r` | Restart selected service |
+| `Ctrl+L` | Clear logs |
+| `q` / `Ctrl+C` | Quit (gracefully stops all child processes) |
+
+The dashboard **automatically launches the AXL node** from the `axl/` submodule when you start it — no need to `cd axl && ./node` manually.
+
+---
 
 ### 8. Deploy the iNFT Contract (0G Testnet)
 
