@@ -64,16 +64,88 @@ func (r *RingBuffer) String() string {
 	return strings.Join(out, "\n")
 }
 
+// Lines returns all non-empty lines in order (oldest first).
+func (r *RingBuffer) Lines() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []string
+	if !r.full {
+		for _, l := range r.lines[:r.cursor] {
+			if l != "" {
+				out = append(out, l)
+			}
+		}
+		return out
+	}
+	for i := 0; i < r.size; i++ {
+		idx := (r.cursor + i) % r.size
+		if r.lines[idx] != "" {
+			out = append(out, r.lines[idx])
+		}
+	}
+	return out
+}
+
+// ── PipelineStats ───────────────────────────────────────────────────
+
+type PipelineStats struct {
+	Targets     int
+	Findings    int
+	Exploits    int
+	Disclosures int
+
+	// Sparkline buckets — newest is index 19
+	TargetBuckets     [20]int
+	FindingBuckets    [20]int
+	ExploitBuckets    [20]int
+	DisclosureBuckets [20]int
+
+	// Accumulators for the current second
+	targetAcc     int
+	findingAcc    int
+	exploitAcc    int
+	disclosureAcc int
+}
+
+// shiftBuckets shifts all sparkline arrays left by one and writes accumulators into index 19.
+func (s *PipelineStats) shiftBuckets() {
+	for i := 0; i < 19; i++ {
+		s.TargetBuckets[i] = s.TargetBuckets[i+1]
+		s.FindingBuckets[i] = s.FindingBuckets[i+1]
+		s.ExploitBuckets[i] = s.ExploitBuckets[i+1]
+		s.DisclosureBuckets[i] = s.DisclosureBuckets[i+1]
+	}
+	s.TargetBuckets[19] = s.targetAcc
+	s.FindingBuckets[19] = s.findingAcc
+	s.ExploitBuckets[19] = s.exploitAcc
+	s.DisclosureBuckets[19] = s.disclosureAcc
+	s.targetAcc = 0
+	s.findingAcc = 0
+	s.exploitAcc = 0
+	s.disclosureAcc = 0
+}
+
+// ── EventLine ───────────────────────────────────────────────────────
+
+type EventLine struct {
+	Time    string
+	Service string
+	Text    string
+	Kind    string // target, finding, exploit, disclosure, error, warn
+}
+
 // ── Service ─────────────────────────────────────────────────────────
 
 type Service struct {
-	Name    string
-	Cmd     []string
-	Dir     string
-	Status  string // running, stopped, booting, error
-	Logs    *RingBuffer
-	Process *Process
-	Index   int
+	Name      string
+	Cmd       []string
+	Dir       string
+	Status    string // running, stopped, booting, error
+	Logs      *RingBuffer
+	Process   *Process
+	Index     int
+	StartedAt time.Time
+	LogCount  int
 }
 
 func defaultServices() []*Service {
@@ -88,14 +160,19 @@ func defaultServices() []*Service {
 // ── Model ───────────────────────────────────────────────────────────
 
 type Model struct {
-	tabs       []string
-	activeTab  int
-	services   []*Service
-	selected   int // selected service index on Services tab
-	width      int
-	height     int
-	msgCh      chan tea.Msg
-	quitting   bool
+	tabs        []string
+	activeTab   int
+	services    []*Service
+	selected    int // selected service index on Services tab
+	logViewSvc  int // which service to show in Logs tab
+	width       int
+	height      int
+	msgCh       chan tea.Msg
+	quitting    bool
+	frame       int // 0-39 animation counter
+	tickCount   int
+	stats       PipelineStats
+	events      []EventLine // max 50
 }
 
 func NewModel() Model {
@@ -115,7 +192,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -123,5 +200,19 @@ func tickCmd() tea.Cmd {
 func (m Model) listenCmd() tea.Cmd {
 	return func() tea.Msg {
 		return <-m.msgCh
+	}
+}
+
+// addEvent appends an event, keeping the list at most 50 entries.
+func (m *Model) addEvent(svcName, text, kind string) {
+	e := EventLine{
+		Time:    time.Now().Format("15:04:05"),
+		Service: svcName,
+		Text:    text,
+		Kind:    kind,
+	}
+	m.events = append(m.events, e)
+	if len(m.events) > 50 {
+		m.events = m.events[len(m.events)-50:]
 	}
 }
