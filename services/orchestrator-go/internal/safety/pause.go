@@ -29,7 +29,7 @@ func (p *PauseChecker) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			paused, err := p.client.IsPaused()
+			paused, err := p.client.IsPaused(1) // tokenID 1 = swarm state
 			if err != nil {
 				slog.Error("pause check", "err", err)
 				continue

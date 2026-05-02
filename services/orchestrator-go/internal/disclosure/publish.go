@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/local/swarm/orchestrator/internal/inft"
 	"github.com/local/swarm/orchestrator/internal/x402"
 	"github.com/local/swarm/orchestrator/pkg/axl"
 	"github.com/local/swarm/orchestrator/pkg/messages"
@@ -16,18 +17,20 @@ import (
 type Publisher struct {
 	node         *axl.Node
 	paymentGate  *x402.Gate
+	inftRecorder inft.Recorder
 	defaultPrice float64
 }
 
-func NewPublisher(node *axl.Node, gate *x402.Gate) *Publisher {
+func NewPublisher(node *axl.Node, gate *x402.Gate, recorder inft.Recorder) *Publisher {
 	return &Publisher{
 		node:         node,
 		paymentGate:  gate,
+		inftRecorder: recorder,
 		defaultPrice: 1000.0, // Default $1000 USD per report
 	}
 }
 
-// Publish creates a gated report and publishes the disclosure
+// Publish creates a gated report, records the disclosure on-chain, and publishes the disclosure
 func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploit, teaserPath, fullPath string) error {
 	// Create payment-gated report
 	report, err := p.paymentGate.CreateGatedReport(
@@ -55,6 +58,16 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		"x402_url", report.PaymentURL,
 		"price_usd", p.defaultPrice,
 	)
+
+	// Record disclosure on 0G iNFT
+	if p.inftRecorder != nil {
+		var memoryDelta [32]byte
+		copy(memoryDelta[:], []byte(d.ID)[:32])
+		if err := p.inftRecorder.RecordDisclosure(ctx, 1 /* tokenID */, int64(p.defaultPrice), memoryDelta); err != nil {
+			slog.Error("failed to record disclosure on iNFT", "err", err)
+			// Don't fail the overall publish if on-chain recording fails
+		}
+	}
 
 	// Publish to AXL mesh
 	b, _ := json.Marshal(d)

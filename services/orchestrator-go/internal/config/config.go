@@ -9,11 +9,15 @@ import (
 )
 
 type Config struct {
-	MainnetRPC   string
-	LLMBaseURL   string
-	LLMKey       string
-	LLMModel     string
-	SwarmPrivKey string
+	MainnetRPC         string
+	LLMBaseURL         string
+	LLMKey             string
+	LLMModel           string
+	SwarmPrivKey       string
+	OGRpcURL           string
+	OGPrivateKey       string
+	OGINFTAddress      string
+	ReportServerBaseURL string
 }
 
 func Load() (*Config, error) {
@@ -40,11 +44,15 @@ func Load() (*Config, error) {
 	model := os.Getenv("LLM_MODEL")
 
 	c := &Config{
-		MainnetRPC:   os.Getenv("MAINNET_RPC_URL"),
-		LLMBaseURL:   baseURL,
-		LLMKey:       llmKey,
-		LLMModel:     model,
-		SwarmPrivKey: os.Getenv("SWARM_PRIVATE_KEY"),
+		MainnetRPC:          os.Getenv("MAINNET_RPC_URL"),
+		LLMBaseURL:          baseURL,
+		LLMKey:              llmKey,
+		LLMModel:            model,
+		SwarmPrivKey:        os.Getenv("SWARM_PRIVATE_KEY"),
+		OGRpcURL:            os.Getenv("OG_RPC_URL"),
+		OGPrivateKey:        os.Getenv("OG_PRIVATE_KEY"),
+		OGINFTAddress:       os.Getenv("OG_INFT_ADDRESS"),
+		ReportServerBaseURL: os.Getenv("REPORT_SERVER_BASE_URL"),
 	}
 
 	if c.MainnetRPC == "" {

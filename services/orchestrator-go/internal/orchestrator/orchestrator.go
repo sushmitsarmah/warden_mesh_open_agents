@@ -5,18 +5,20 @@ import (
 	"encoding/json"
 	"log/slog"
 
+	"github.com/local/swarm/orchestrator/internal/disclosure"
 	"github.com/local/swarm/orchestrator/internal/llm"
 	"github.com/local/swarm/orchestrator/pkg/axl"
 	"github.com/local/swarm/orchestrator/pkg/messages"
 )
 
 type Orchestrator struct {
-	node     *axl.Node
+	node      *axl.Node
 	llmClient llm.Client
+	publisher *disclosure.Publisher
 }
 
-func New(node *axl.Node, llmClient llm.Client) *Orchestrator {
-	return &Orchestrator{node: node, llmClient: llmClient}
+func New(node *axl.Node, llmClient llm.Client, publisher *disclosure.Publisher) *Orchestrator {
+	return &Orchestrator{node: node, llmClient: llmClient, publisher: publisher}
 }
 
 func (o *Orchestrator) Run(ctx context.Context) error {
@@ -35,6 +37,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 				continue
 			}
 			slog.Info("finding", "id", f.ID, "category", f.Category, "severity", f.Severity)
+			_ = o.publisher
 		}
 	}
 }
