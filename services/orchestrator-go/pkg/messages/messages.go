@@ -65,5 +65,6 @@ type Disclosure struct {
 	Lane        string    `json:"lane"`
 	X402URL     string    `json:"x402Url,omitempty"`
 	TxHash      string    `json:"txHash,omitempty"`
+	StorageHash string    `json:"storageHash,omitempty"` // 0G Storage root hash of full report
 	PublishedAt time.Time `json:"publishedAt"`
 }

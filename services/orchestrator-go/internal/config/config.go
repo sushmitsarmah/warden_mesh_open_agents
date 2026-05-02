@@ -18,7 +18,8 @@ type Config struct {
 	OGRpcURL      string
 	OGPrivateKey  string
 	OGINFTAddress string
-	ReportServerBaseURL string
+	ReportServerBaseURL    string
+	StorageGatewayURL      string
 
 	// 0G Compute / sealed inference — optional second provider
 	SealedLLMBaseURL string
@@ -51,7 +52,8 @@ func Load() (*Config, error) {
 		OGRpcURL:            os.Getenv("OG_RPC_URL"),
 		OGPrivateKey:        os.Getenv("OG_PRIVATE_KEY"),
 		OGINFTAddress:       os.Getenv("OG_INFT_ADDRESS"),
-		ReportServerBaseURL: os.Getenv("REPORT_SERVER_BASE_URL"),
+		ReportServerBaseURL:    os.Getenv("REPORT_SERVER_BASE_URL"),
+		StorageGatewayURL:      os.Getenv("STORAGE_GATEWAY_URL"),
 		SealedLLMBaseURL:    sealedURL,
 		SealedLLMKey:        sealedKey,
 		SealedLLMModel:      sealedModel,

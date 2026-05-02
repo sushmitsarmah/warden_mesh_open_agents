@@ -11,6 +11,7 @@ import (
 	"github.com/local/swarm/orchestrator/internal/inft"
 	"github.com/local/swarm/orchestrator/internal/llm"
 	"github.com/local/swarm/orchestrator/internal/orchestrator"
+	"github.com/local/swarm/orchestrator/internal/storage"
 	"github.com/local/swarm/orchestrator/internal/x402"
 	"github.com/local/swarm/orchestrator/pkg/axl"
 )
@@ -47,8 +48,11 @@ func main() {
 	// Initialize x402 payment gate
 	gate := x402.NewGate(cfg.ReportServerBaseURL)
 
-	// Initialize disclosure publisher with iNFT recorder
-	publisher := disclosure.NewPublisher(node, gate, inftClient)
+	// Initialize 0G Storage client (optional — falls back to local fs when gateway not set)
+	storageClient := storage.NewLightClient(cfg.StorageGatewayURL)
+
+	// Initialize disclosure publisher
+	publisher := disclosure.NewPublisher(node, gate, inftClient, storageClient)
 
 	o := orchestrator.New(node, llmClient, publisher)
 	if err := o.Run(ctx); err != nil {

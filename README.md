@@ -225,18 +225,19 @@ make test-exploit-gen  # Run LLM exploit generation test
 
 ## Project Status
 
-All major components implemented. See `PROJECT_STATUS.md` for detailed status.
-
-| Component | Status |
-|---|---|
-| Scout (mempool + GitHub) | ✅ Complete |
-| AXL Mesh (pub/sub) | ✅ Complete |
-| Auditor (Aderyn + Slither) | ✅ Complete |
-| LLM Client (exploit gen) | ✅ Complete |
-| Foundry Verification | ✅ Complete |
-| x402 Payment Gating | ✅ Complete (with stub fallback) |
-| 0G iNFT | ✅ Complete |
-| Dashboard | ✅ Complete |
+| Component | Status | Notes |
+|---|---|---|
+| Scout (mempool + GitHub) | ✅ Complete | Publishes targets to AXL |
+| AXL Mesh (pub/sub) | ✅ Complete | Pre-built arm64 binary |
+| Auditor (Aderyn + Slither) | ✅ Complete | Fetches source, runs analyzers, publishes findings |
+| LLM Client (exploit gen) | ✅ Complete | Multi-provider: OpenAI, Anthropic, Ollama, 0G Compute |
+| Foundry Verification | ✅ Complete | Fork tests via `infra/forge-harness/` |
+| x402 Payment Gating | ✅ Complete | Stub mode when `KEEPERHUB_API_KEY` unset |
+| 0G Storage | ✅ Complete | Full reports uploaded; root hash used as iNFT memory pointer |
+| 0G iNFT Recording | ✅ Complete | Records disclosure + storage hash on-chain |
+| Dashboard TUI | ✅ Complete | Process manager with live log streaming |
+| Differential Check | ⚠️ Stub | Always passes; set `ENABLE_DIFFERENTIAL=true` to activate |
+| Rescue Lane | 🚫 Disabled | Intentionally off for hackathon (requires multisig) |
 
 ---
 
@@ -260,9 +261,9 @@ All major components implemented. See `PROJECT_STATUS.md` for detailed status.
 
 4. **ETH Price** — Mempool watcher uses a hardcoded $3000 ETH price for TVL estimation. For production, integrate a Chainlink or Coingecko oracle.
 
-5. **Dashboard WebSocket** — The `/ws` endpoint returns 200. Full WebSocket streaming of AXL events to browser is a TODO for the frontend.
+5. **0G Storage Fallback** — When `STORAGE_GATEWAY_URL` is blank or the gateway is unreachable, reports are stored locally at `/tmp/0g-storage-local/`. The iNFT memory pointer is still written; it just points to a local SHA-256 hash rather than a live 0G root hash.
 
-6. **Audit Checkpoint** — `internal/safety/audit.go` writes a placeholder "checkpoint" string every 100 lines instead of computing a real memory hash. The `internal/memory/store.go` package exists for this; integration is a TODO.
+6. **Audit Checkpoint** — `internal/safety/audit.go` writes a placeholder "checkpoint" string instead of a real memory hash. The `internal/memory/store.go` package exists for this; wiring is a TODO.
 
 ---
 
