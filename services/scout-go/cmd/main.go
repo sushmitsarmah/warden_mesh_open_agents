@@ -4,7 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/local/swarm/scout/internal/config"
 	"github.com/local/swarm/scout/internal/scout"
@@ -47,8 +49,37 @@ func main() {
 		}
 	}()
 
-	w := scout.NewMempoolWatcher(cfg.SepoliaRPC, out)
-	if err := w.Run(ctx); err != nil {
-		slog.Error("watcher", "err", err)
-	}
+	var wg sync.WaitGroup
+
+	// Mempool watcher (on-chain targets)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		w := scout.NewMempoolWatcher(cfg.SepoliaRPC, out)
+		if err := w.Run(ctx); err != nil {
+			slog.Error("mempool watcher", "err", err)
+		}
+	}()
+
+	// GitHub commit watcher (repo targets)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		repoCfg, err := scout.LoadRepoConfig("")
+		if err != nil {
+			slog.Error("load repo config", "err", err)
+			return
+		}
+		gh := scout.NewGitHubWatcher(
+			cfg.GitHubToken,
+			out,
+			repoCfg.Repos,
+			time.Duration(repoCfg.PollIntervalSeconds)*time.Second,
+		)
+		if err := gh.Run(ctx); err != nil {
+			slog.Error("github watcher", "err", err)
+		}
+	}()
+
+	wg.Wait()
 }
