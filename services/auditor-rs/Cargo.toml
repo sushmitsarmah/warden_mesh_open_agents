@@ -19,6 +19,10 @@ path = "src/bin/roundtrip-check.rs"
 name = "test-analyzers"
 path = "src/bin/test-analyzers.rs"
 
+[[bin]]
+name = "test-etherscan"
+path = "src/bin/test-etherscan.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

@@ -5,25 +5,62 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	// TODO: uncomment when module resolution is set up
-	// "github.com/local/swarm/orchestrator/pkg/axl"
+	"github.com/local/swarm/orchestrator/pkg/axl"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// TODO: uncomment when module resolution is set up
-	// node, _ := axl.NewNode(nil)
-	// defer node.Close()
+	// Parse peer keys from environment
+	var peerKeys []string
+	if keysEnv := os.Getenv("AXL_PEER_KEYS"); keysEnv != "" {
+		peerKeys = strings.Split(keysEnv, ",")
+	}
+
+	// Initialize AXL node
+	node, err := axl.NewNode(peerKeys)
+	if err != nil {
+		slog.Error("failed to create AXL node", "err", err)
+		return
+	}
+	defer node.Close()
+
+	slog.Info("dashboard started", "axl_peers", len(peerKeys))
+
+	// Subscribe to all major topics for dashboard display
+	targetsCh, _ := node.Subscribe("targets/discovered")
+	findingsCh, _ := node.Subscribe("analysis/findings")
+	exploitsCh, _ := node.Subscribe("exploit/verified")
+	disclosureCh, _ := node.Subscribe("disclosure/published")
+
+	// Log incoming messages
+	go func() {
+		for {
+			select {
+			case msg := <-targetsCh:
+				slog.Info("target discovered", "data", string(msg))
+			case msg := <-findingsCh:
+				slog.Info("finding received", "data", string(msg))
+			case msg := <-exploitsCh:
+				slog.Info("exploit verified", "data", string(msg))
+			case msg := <-disclosureCh:
+				slog.Info("disclosure published", "data", string(msg))
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: wire up AXL subscription and WebSocket proxy
+		// TODO: upgrade to WebSocket and stream AXL events to browser
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
