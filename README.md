@@ -105,132 +105,109 @@ Copy `.env` to `.env.local` and fill in your keys:
 cp .env .env.local
 ```
 
-Required variables (see `.env` for full list):
+**Minimal setup for a demo** (only need a few keys):
 
 ```bash
-# RPC endpoints (Alchemy/Infura)
-SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+# Required — pick at least one LLM provider
+OPENAI_API_KEY=sk-...
+# or ANTHROPIC_API_KEY=sk-ant-...
+# or LLM_BASE_URL=http://localhost:11434/v1
+
+# Required — RPC for blockchain access
 MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
 
-# LLM (pick one)
-OPENAI_API_KEY=sk-...
-# or
-ANTHROPIC_API_KEY=sk-ant-...
-# or local: LLM_BASE_URL=http://localhost:11434/v1
-
-# Etherscan
-ETHERSCAN_API_KEY=YOUR_KEY
-
-# GitHub (for commit watcher)
+# Optional — for GitHub commit watcher
 GITHUB_TOKEN=ghp_...
 
-# 0G Testnet (optional, for iNFT)
-OG_RPC_URL=https://rpc-testnet.0g.ai
-OG_PRIVATE_KEY=0x...
-OG_INFT_ADDRESS=0x... # after deploying SwarmINFT.sol
+# Optional — for 0G iNFT on-chain recording
+# OG_RPC_URL=https://rpc-testnet.0g.ai
+# OG_PRIVATE_KEY=0x...
+# OG_INFT_ADDRESS=0x...
 
-# AXL Mesh (optional, local mode works without)
-AXL_API_URL=http://127.0.0.1:9002
-AXL_PEER_KEYS=
-
-# KeeperHub x402 (optional, stub mode works without)
-KEEPERHUB_API_KEY=
-REPORT_PRICE_USD=1000
+# Optional — KeeperHub x402 production payments
+# KEEPERHUB_API_KEY=...
 ```
 
-### 3. Run Tests
+### 3. Run Everything from the Dashboard (Recommended)
+
+The TUI dashboard is the single entry point. Start it and launch agents from there:
 
 ```bash
-make test
+make run-dashboard
 ```
 
-Runs:
-- `go test ./...` in scout-go & orchestrator-go
-- `cargo test` in auditor-rs
-- `forge test` in contracts
+This opens the terminal UI. From there:
 
-### 4. Run the Scout
+1. Press `3` to switch to **Services** tab
+2. Use `↓` to select **AXL Node**
+3. Press `Enter` to start it
+4. Repeat for **Scout**, **Auditor**, **Orchestrator**
+5. Or press `a` to start **ALL** at once
 
-```bash
-cd services/scout-go
-SWARM_PRIVATE_KEY=0x... go run ./cmd
-```
-
-The scout will:
-- Subscribe to Sepolia mempool for contract deployments & large transfers
-- Poll GitHub repos (`configs/repos.yaml`) for new commits
-- Publish deduplicated, scored targets to AXL mesh topic `targets/discovered`
-
-### 5. Run the Auditor
-
-```bash
-cd services/auditor-rs
-cargo run --release
-```
-
-The auditor will:
-- Subscribe to `targets/discovered`
-- Fetch verified source from Etherscan
-- Run Aderyn + Slither, merge results
-- Publish findings to `analysis/findings`
-
-### 6. Run the Orchestrator
-
-```bash
-cd services/orchestrator-go
-OPENAI_API_KEY=sk-... go run ./cmd
-```
-
-The orchestrator will:
-- Subscribe to `analysis/findings`
-- Generate exploit PoC via LLM (`prompts/exploit_v1.md`)
-- Run Foundry fork test, extract drain amount
-- Generate teaser + full report (`prompts/report_v1.md`)
-- Create x402-gated payment URL (stub mode if no KeeperHub key)
-- Record disclosure on 0G iNFT (if configured)
-- Publish to `disclosure/published`
-
-### 7. Run the TUI Dashboard
-
-```bash
-cd services/dashboard/server
-go run .
-# or simply: make run-dashboard
-```
-
-A beautiful terminal UI opens with **3 tabs**:
-- **Overview** — Live pipeline stats, agent statuses
-- **Logs** — Real-time log stream of selected service (500-line ring buffer)
-- **Services** — Start/stop/restart any agent from the terminal
+Watch the **Overview** tab (`1`) for live pipeline stats and the **Logs** tab (`2`) for real-time output.
 
 **Keybindings:**
+
 | Key | Action |
 |---|---|
-| `1-3` / `Tab` / `←→` | Switch tabs |
-| `↑↓` / `j/k` | Select service (Services tab) |
+| `1-3` | Switch tabs (Overview / Logs / Services) |
+| `↑↓` / `j/k` | Select service |
 | `Enter` / `s` | Toggle start/stop selected service |
 | `a` | Start ALL services |
 | `x` | Stop ALL services |
 | `r` | Restart selected service |
 | `Ctrl+L` | Clear logs |
-| `q` / `Ctrl+C` | Quit (gracefully stops all child processes) |
+| `q` / `Ctrl+C` | Quit |
 
-The dashboard **automatically launches the AXL node** from the `axl/` submodule when you start it — no need to `cd axl && ./node` manually.
+### 4. Run Services Manually (Alternative)
 
----
+If you prefer running each agent in its own terminal:
 
-### 8. Deploy the iNFT Contract (0G Testnet)
+**Terminal 1 — Scout:**
+```bash
+cd services/scout-go
+SWARM_PRIVATE_KEY=0x... go run ./cmd
+```
+
+**Terminal 2 — Auditor:**
+```bash
+cd services/auditor-rs
+cargo run --release
+```
+
+**Terminal 3 — Orchestrator:**
+```bash
+cd services/orchestrator-go
+OPENAI_API_KEY=sk-... go run ./cmd
+```
+
+### 5. Verify the Pipeline Works
+
+1. **Scout** observes a target (mempool event or GitHub commit)
+2. **Auditor** receives it via AXL, runs Aderyn + Slither
+3. **Orchestrator** receives the finding, prompts LLM for exploit
+4. Exploit is generated to `/tmp/orchestrator/exploits/`
+5. Foundry fork test runs — if it passes, a report is generated
+6. Disclosure is published to AXL mesh and recorded on 0G iNFT
+
+Check logs in the dashboard or use `axl-tail`:
+```bash
+cd services/scout-go && go run ./cmd/axl-tail
+```
+
+### 6. Deploy the iNFT Contract (0G Testnet)
 
 ```bash
 cd contracts
-forge script script/Deploy.s.sol --rpc-url $OG_RPC_URL --broadcast
+export OG_PRIVATE_KEY=0x...
+forge script script/Deploy.s.sol --rpc-url https://rpc-testnet.0g.ai --broadcast
 ```
 
-Update `.env` with the deployed `OG_INFT_ADDRESS`.
+Copy the deployed address into `.env` as `OG_INFT_ADDRESS`.
 
 ---
 
-## Build Commands
+## Build & Test
 
 ```bash
 make build       # Build all services + contracts
