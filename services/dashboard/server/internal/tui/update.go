@@ -28,6 +28,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = 1
 		case "3":
 			m.activeTab = 2
+		case "4":
+			m.activeTab = 3
 
 		case "up", "k":
 			if m.activeTab == 2 {

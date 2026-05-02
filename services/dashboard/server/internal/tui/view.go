@@ -213,6 +213,8 @@ func (m Model) View() string {
 		b.WriteString(m.renderLogs(contentHeight))
 	case 2:
 		b.WriteString(m.renderServices(contentHeight))
+	case 3:
+		b.WriteString(m.renderCharts(contentHeight))
 	}
 
 	b.WriteString("\n")
@@ -608,7 +610,7 @@ func (m Model) renderServices(h int) string {
 
 func (m Model) renderFooter() string {
 	hints := []string{
-		keyStyle.Render("1-3") + dimStyle.Render(" tabs"),
+		keyStyle.Render("1-4") + dimStyle.Render(" tabs"),
 		keyStyle.Render("←→/Tab") + dimStyle.Render(" switch"),
 		keyStyle.Render("s") + dimStyle.Render(" start/stop"),
 		keyStyle.Render("a") + dimStyle.Render(" start all"),
@@ -618,4 +620,312 @@ func (m Model) renderFooter() string {
 		keyStyle.Render("q") + dimStyle.Render(" quit"),
 	}
 	return hintStyle.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Tab 4: Charts ─────────────────────────────────────────────────────
+
+func (m Model) renderCharts(h int) string {
+	w := m.width
+	if w == 0 {
+		w = 120
+	}
+
+	topH := h * 2 / 5
+	if topH < 8 {
+		topH = 8
+	}
+	bottomH := h - topH - 2
+	if bottomH < 6 {
+		bottomH = 6
+	}
+
+	half := (w - 6) / 2
+
+	funnelBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorAccent).
+		Width(half).
+		Padding(0, 1).
+		Render(m.renderFunnelInner(half - 2))
+
+	statusBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorBlue).
+		Width(half).
+		Padding(0, 1).
+		Render(m.renderStatusInner(half - 2))
+
+	topRow := lipgloss.JoinHorizontal(lipgloss.Top, funnelBox, "   ", statusBox)
+	timeline := m.renderTimeline(w, bottomH)
+
+	return topRow + "\n\n" + timeline
+}
+
+// renderFunnelInner renders the pipeline funnel chart content (no border).
+func (m Model) renderFunnelInner(w int) string {
+	type stage struct {
+		label string
+		value int
+		color lipgloss.Color
+	}
+	stages := []stage{
+		{"Targets    ", m.stats.Targets, colorGreen},
+		{"Findings   ", m.stats.Findings, colorYellow},
+		{"Exploits   ", m.stats.Exploits, colorRed},
+		{"Disclosures", m.stats.Disclosures, colorCyan},
+	}
+
+	maxVal := 1
+	for _, s := range stages {
+		if s.value > maxVal {
+			maxVal = s.value
+		}
+	}
+
+	const labelW = 12
+	const numW = 12
+	barAreaW := w - labelW - numW
+	if barAreaW < 4 {
+		barAreaW = 4
+	}
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("PIPELINE FUNNEL")
+	div := dimStyle.Render(strings.Repeat("─", w))
+
+	lines := []string{title, div}
+
+	for i, s := range stages {
+		filled := 0
+		if maxVal > 0 {
+			filled = s.value * barAreaW / maxVal
+		}
+		if s.value > 0 && filled == 0 {
+			filled = 1
+		}
+		empty := barAreaW - filled
+
+		bar := lipgloss.NewStyle().Foreground(s.color).Render(strings.Repeat("█", filled)) +
+			dimStyle.Render(strings.Repeat("░", empty))
+
+		pct := "100% "
+		if i > 0 && stages[0].value > 0 {
+			pct = fmt.Sprintf("%.1f%%", float64(s.value)*100/float64(stages[0].value))
+		} else if i > 0 {
+			pct = "  0% "
+		}
+		numStr := fmt.Sprintf("%4d %-6s", s.value, pct)
+
+		line := dimStyle.Render(fmt.Sprintf("%-12s", s.label)) + bar + " " +
+			lipgloss.NewStyle().Foreground(s.color).Bold(true).Render(numStr)
+		lines = append(lines, line)
+	}
+
+	lines = append(lines, div)
+
+	base := stages[0].value
+	last := stages[3].value
+	if base > 0 {
+		conv := fmt.Sprintf("End-to-end: %.1f%%  (%d → %d)", float64(last)*100/float64(base), base, last)
+		lines = append(lines, dimStyle.Render(conv))
+	} else {
+		lines = append(lines, dimStyle.Render("No data yet — start Scout to begin"))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// renderStatusInner renders the service health status content (no border).
+func (m Model) renderStatusInner(w int) string {
+	counts := map[string]int{"running": 0, "booting": 0, "stopped": 0, "error": 0}
+	for _, svc := range m.services {
+		counts[svc.Status]++
+	}
+	total := len(m.services)
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("SERVICE HEALTH")
+	div := dimStyle.Render(strings.Repeat("─", w))
+
+	lines := []string{title, div}
+
+	// Segmented bar
+	barW := w - 2
+	if barW < 4 {
+		barW = 4
+	}
+
+	type seg struct {
+		label string
+		char  string
+		color lipgloss.Color
+	}
+	segs := []seg{
+		{"Running", "█", colorGreen},
+		{"Booting", "▓", colorOrange},
+		{"Stopped", "░", colorGray},
+		{"Error  ", "▒", colorRed},
+	}
+
+	var bar string
+	allocated := 0
+	for i, s := range segs {
+		cnt := counts[strings.ToLower(strings.TrimSpace(s.label))]
+		segW := 0
+		if total > 0 {
+			segW = cnt * barW / total
+		}
+		if cnt > 0 && segW == 0 {
+			segW = 1
+		}
+		if i == len(segs)-1 {
+			segW = barW - allocated
+		}
+		if segW < 0 {
+			segW = 0
+		}
+		bar += lipgloss.NewStyle().Foreground(s.color).Render(strings.Repeat(s.char, segW))
+		allocated += segW
+	}
+	lines = append(lines, "▐"+bar+"▌")
+	lines = append(lines, "")
+
+	for _, s := range segs {
+		statusKey := strings.ToLower(strings.TrimSpace(s.label))
+		cnt := counts[statusKey]
+		pct := 0.0
+		if total > 0 {
+			pct = float64(cnt) * 100 / float64(total)
+		}
+		dot := lipgloss.NewStyle().Foreground(s.color).Render(s.char + s.char)
+		label := fmt.Sprintf("  %-8s %d  (%.0f%%)", s.label, cnt, pct)
+		lines = append(lines, dot+dimStyle.Render(label))
+	}
+
+	lines = append(lines, div)
+
+	running := counts["running"]
+	healthStr := fmt.Sprintf("Mesh: %d/%d online", running, total)
+	hc := colorRed
+	if running == total {
+		hc = colorGreen
+	} else if running > 0 {
+		hc = colorOrange
+	}
+	lines = append(lines, lipgloss.NewStyle().Foreground(hc).Bold(true).Render(healthStr))
+
+	// Per-service uptime list
+	lines = append(lines, "")
+	for _, svc := range m.services {
+		dot := dimStyle.Render("○")
+		info := ""
+		if svc.Status == "running" && !svc.StartedAt.IsZero() {
+			dot = lipgloss.NewStyle().Foreground(colorGreen).Render("●")
+			info = "  up " + fmtDuration(time.Since(svc.StartedAt))
+		} else if svc.Status == "booting" {
+			dot = lipgloss.NewStyle().Foreground(colorOrange).Render(spinnerFrames[(m.frame/2)%10])
+		} else if svc.Status == "error" {
+			dot = lipgloss.NewStyle().Foreground(colorRed).Render("✗")
+		}
+		name := fmt.Sprintf("%-14s", truncate(svc.Name, 14))
+		lines = append(lines, dot+" "+dimStyle.Render(name)+dimStyle.Render(info))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// renderTimeline renders the full-width stacked activity histogram.
+func (m Model) renderTimeline(w, h int) string {
+	chartH := h - 4
+	if chartH < 3 {
+		chartH = 3
+	}
+
+	const numCols = 20
+
+	// Find max total for scaling
+	var totals [numCols]int
+	for i := range totals {
+		totals[i] = m.stats.TargetBuckets[i] + m.stats.FindingBuckets[i] +
+			m.stats.ExploitBuckets[i] + m.stats.DisclosureBuckets[i]
+	}
+	maxTotal := 1
+	for _, v := range totals {
+		if v > maxTotal {
+			maxTotal = v
+		}
+	}
+
+	type colData struct{ tH, fH, eH, dH int }
+	cols := make([]colData, numCols)
+	for c := range cols {
+		if totals[c] == 0 {
+			continue
+		}
+		scale := func(v int) int { return v * chartH / maxTotal }
+		cd := colData{
+			tH: scale(m.stats.TargetBuckets[c]),
+			fH: scale(m.stats.FindingBuckets[c]),
+			eH: scale(m.stats.ExploitBuckets[c]),
+			dH: scale(m.stats.DisclosureBuckets[c]),
+		}
+		if cd.tH+cd.fH+cd.eH+cd.dH == 0 {
+			cd.tH = 1
+		}
+		cols[c] = cd
+	}
+
+	yAxisW := len(fmt.Sprintf("%d", maxTotal)) + 2
+
+	// Title + legend
+	legend := "  " +
+		lipgloss.NewStyle().Foreground(colorGreen).Render("█") + dimStyle.Render(" targets") +
+		"  " + lipgloss.NewStyle().Foreground(colorYellow).Render("█") + dimStyle.Render(" findings") +
+		"  " + lipgloss.NewStyle().Foreground(colorRed).Render("█") + dimStyle.Render(" exploits") +
+		"  " + lipgloss.NewStyle().Foreground(colorCyan).Render("█") + dimStyle.Render(" disclosures")
+	titleLine := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("ACTIVITY TIMELINE") + legend
+
+	var lines []string
+	lines = append(lines, titleLine)
+
+	// Chart rows
+	for r := 0; r < chartH; r++ {
+		var yLabel string
+		switch r {
+		case 0:
+			yLabel = fmt.Sprintf("%*d│", yAxisW-1, maxTotal)
+		case chartH / 2:
+			yLabel = fmt.Sprintf("%*d│", yAxisW-1, maxTotal/2)
+		default:
+			yLabel = fmt.Sprintf("%*s│", yAxisW-1, "")
+		}
+
+		row := dimStyle.Render(yLabel)
+		posFromBottom := chartH - 1 - r
+		for _, col := range cols {
+			row += stackedCell(posFromBottom, col.tH, col.fH, col.eH, col.dH)
+		}
+		lines = append(lines, row)
+	}
+
+	colW := 2
+	xAxis := fmt.Sprintf("%*s└%s► now", yAxisW-1, "", strings.Repeat("─", numCols*colW))
+	lines = append(lines, dimStyle.Render(xAxis))
+	timeLabel := fmt.Sprintf("%*s  -20s%s0s", yAxisW-1, "", strings.Repeat(" ", numCols*colW-7))
+	lines = append(lines, dimStyle.Render(timeLabel))
+
+	return strings.Join(lines, "\n")
+}
+
+// stackedCell returns a 2-char colored block for the given row position.
+func stackedCell(posFromBottom, tH, fH, eH, dH int) string {
+	switch {
+	case posFromBottom < tH:
+		return lipgloss.NewStyle().Foreground(colorGreen).Render("██")
+	case posFromBottom < tH+fH:
+		return lipgloss.NewStyle().Foreground(colorYellow).Render("██")
+	case posFromBottom < tH+fH+eH:
+		return lipgloss.NewStyle().Foreground(colorRed).Render("██")
+	case posFromBottom < tH+fH+eH+dH:
+		return lipgloss.NewStyle().Foreground(colorCyan).Render("██")
+	}
+	return "  "
 }

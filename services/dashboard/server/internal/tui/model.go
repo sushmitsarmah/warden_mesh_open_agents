@@ -177,7 +177,7 @@ type Model struct {
 
 func NewModel() Model {
 	return Model{
-		tabs:     []string{"Overview", "Logs", "Services"},
+		tabs:     []string{"Overview", "Logs", "Services", "Charts"},
 		services: defaultServices(),
 		selected: 0,
 		msgCh:    make(chan tea.Msg, 256),
