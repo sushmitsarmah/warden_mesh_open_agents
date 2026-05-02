@@ -1,4 +1,4 @@
-.PHONY: build test clean scout auditor orchestrator contracts roundtrip
+.PHONY: build test clean scout auditor orchestrator contracts roundtrip test-analyzers test-exploit-gen
 
 build: scout auditor orchestrator contracts
 
@@ -27,3 +27,10 @@ clean:
 	cd services/auditor-rs && cargo clean
 	cd contracts && forge clean
 	rm -rf services/*/bin
+
+# Component tests
+test-analyzers:
+	cd services/auditor-rs && cargo run --bin test-analyzers
+
+test-exploit-gen:
+	cd services/orchestrator-go && go build -o bin/test-exploit-gen ./cmd/test-exploit-gen && ./bin/test-exploit-gen
