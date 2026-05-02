@@ -39,6 +39,25 @@ An agentic mesh of security bots that autonomously discovers, analyzes, verifies
 
 ## Prerequisites
 
+You have two options for setting up the environment:
+
+### Option A: Nix (Recommended — fully reproducible)
+
+If you have [Nix](https://nixos.org/) with flakes enabled:
+
+```bash
+nix develop
+```
+
+This drops you into a shell with Go, Rust, Foundry, Node.js, Python, Slither, and all other dependencies pre-installed. **Aderyn is automatically installed on first entry** if not already present. No manual steps needed.
+
+If you don't have flakes enabled, use the legacy shell:
+```bash
+nix-shell
+```
+
+### Option B: Manual Install
+
 | Tool | Version | Verify |
 |---|---|---|
 | Go | ≥ 1.22 | `go version` |
