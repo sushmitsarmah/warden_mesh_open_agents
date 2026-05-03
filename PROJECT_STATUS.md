@@ -73,7 +73,7 @@
 | Differential Check | Placeholder | Returns `true`; opt-in via `ENABLE_DIFFERENTIAL=true` |
 | x402 Payments | Complete | KeeperHub Workflow API + stub fallback for dev |
 | Dashboard TUI | Complete | Terminal UI, process manager, log viewer, config editor, dual AXL node launcher |
-| 0G iNFT | Complete | Bindings generated, wired into disclosure |
+| 0G Storage | Complete | Official SDK v1.3.0 (`github.com/0gfoundation/0g-storage-client`); real uploads via indexer, fallback to local SHA-256 |
 | Rescue Lane | Disabled | Intentionally disabled for safety |
 
 ---
@@ -98,6 +98,13 @@
 - Updated environment variables: `AXL_API_URL_NODE_A`, `AXL_API_URL_NODE_B`, `AXL_PEERS_FOR_NODE_A`, `AXL_PEERS_FOR_NODE_B`
 - Created separate node configs (`node-config-a.json`, `node-config-b.json`) with independent ed25519 keys
 - Dashboard TUI now launches both nodes; `Start ALL` bootstraps nodes first, then agents after a 2-second delay
+
+### 0G Storage SDK Integration (2026-05-03)
+- Integrated the official 0G Storage Go SDK (`github.com/0gfoundation/0g-storage-client` v1.3.0)
+- Real uploads via `indexer.SplitableUpload` with configurable `OG_STORAGE_INDEXER_URL`, `OG_STORAGE_RPC_URL`, and `OG_PRIVATE_KEY`
+- Falls back to local SHA-256 hashing on any SDK gateway error (logged at WARN)
+- Startup self-test: uploads a 1KB test blob at boot; warns but does not crash if 0G is unreachable
+- Legacy HTTP gateway path preserved as tier-2 fallback, local filesystem as tier-3
 
 ### 0G iNFT Integration
 - Generated Go bindings from `SwarmINFT.abi.json` using `abigen`

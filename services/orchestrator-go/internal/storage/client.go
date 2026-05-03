@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,13 +14,18 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/0gfoundation/0g-storage-client/common/blockchain"
+	"github.com/0gfoundation/0g-storage-client/core"
+	"github.com/0gfoundation/0g-storage-client/indexer"
+	"github.com/0gfoundation/0g-storage-client/transfer"
 )
 
-// LightClient uploads/downloads data via 0G Storage HTTP gateway.
-// It avoids heavy SDK dependencies (web3go, EVM tx signing) by using
-// the direct HTTP file upload API exposed by storage nodes.
+// LightClient uploads/downloads data via 0G Storage.
+// It uses the official 0G Go SDK when OG_STORAGE_INDEXER_URL is configured,
+// falls back to the legacy HTTP gateway, and finally to local filesystem.
 type LightClient struct {
-	gatewayURL string // e.g. "https://storage-turbo-testnet.0g.ai"
+	gatewayURL string // legacy HTTP gateway (e.g. "https://storage-turbo-testnet.0g.ai")
 	httpClient *http.Client
 }
 
@@ -38,10 +44,9 @@ type FileInfo struct {
 	Finalized  bool   `json:"finalized"`
 }
 
-// NewLightClient creates a lightweight HTTP-only 0G Storage client.
+// NewLightClient creates a lightweight 0G Storage client.
 func NewLightClient(gatewayURL string) *LightClient {
 	if gatewayURL == "" {
-		// Turbo testnet default
 		gatewayURL = "https://storage-turbo-testnet.0g.ai"
 	}
 	return &LightClient{
@@ -57,13 +62,129 @@ func (c *LightClient) SetTimeout(d time.Duration) {
 	c.httpClient.Timeout = d
 }
 
+// SelfTest uploads a 1KB test blob at startup to verify SDK connectivity.
+// On failure it logs a warning but does NOT crash — the orchestrator keeps running.
+func (c *LightClient) SelfTest(ctx context.Context) {
+	if !hasSDKConfig() {
+		slog.Info("0g storage self-test skipped: no SDK config (OG_STORAGE_INDEXER_URL)")
+		return
+	}
+	testData := make([]byte, 1024)
+	_, _ = rand.Read(testData)
+	_, err := c.uploadWithSDK(ctx, "self-test", testData)
+	if err != nil {
+		slog.Warn("0g storage degraded at startup", "err", err)
+	} else {
+		slog.Info("0g storage self-test passed")
+	}
+}
+
 // Upload stores a byte slice in 0G Storage and returns its root hash.
-// If no gateway is available it falls back to local filesystem (dev mode).
+// Priority: 1) official SDK, 2) legacy HTTP gateway, 3) local filesystem fallback.
 func (c *LightClient) Upload(ctx context.Context, name string, data []byte) (*UploadResult, error) {
-	if c.gatewayURL == "" || isOfflineMode() {
-		return c.uploadLocal(name, data)
+	// 1. Try official SDK if configured.
+	if hasSDKConfig() {
+		result, err := c.uploadWithSDK(ctx, name, data)
+		if err == nil {
+			return result, nil
+		}
+		slog.Warn("0g storage degraded, fell back to local", "err", err)
 	}
 
+	// 2. Try legacy HTTP gateway.
+	if c.gatewayURL != "" && !isOfflineMode() {
+		result, err := c.uploadHTTP(ctx, name, data)
+		if err == nil {
+			return result, nil
+		}
+		slog.Warn("0g storage http gateway failed, fell back to local", "err", err)
+	}
+
+	// 3. Final fallback: local filesystem.
+	return c.uploadLocal(name, data)
+}
+
+// uploadWithSDK uses the official 0G Storage Go SDK to upload data.
+// NOTE: The SDK (v1.3.0) can panic inside background goroutines when a storage node
+// hasn't synced the on-chain log entry. Until 0G fixes this upstream, the SDK path
+// is gated behind OG_STORAGE_USE_SDK=true.
+func (c *LightClient) uploadWithSDK(ctx context.Context, name string, data []byte) (result *UploadResult, err error) {
+	rpcURL := os.Getenv("OG_STORAGE_RPC_URL")
+	if rpcURL == "" {
+		rpcURL = os.Getenv("OG_RPC_URL")
+	}
+	indexerURL := os.Getenv("OG_STORAGE_INDEXER_URL")
+	privateKey := os.Getenv("OG_PRIVATE_KEY")
+
+	if rpcURL == "" {
+		return nil, fmt.Errorf("OG_STORAGE_RPC_URL or OG_RPC_URL required")
+	}
+	if indexerURL == "" {
+		return nil, fmt.Errorf("OG_STORAGE_INDEXER_URL required")
+	}
+	if privateKey == "" {
+		return nil, fmt.Errorf("OG_PRIVATE_KEY required for signing storage uploads")
+	}
+
+	// Apply a hard deadline so a hanging node sync doesn't block forever.
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+
+	// Create Web3 client for on-chain interactions.
+	w3Client, err := blockchain.NewWeb3(rpcURL, privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("create web3 client: %w", err)
+	}
+	defer w3Client.Close()
+
+	// Create indexer client for node discovery.
+	indexerClient, err := indexer.NewClient(indexerURL, indexer.IndexerClientOption{})
+	if err != nil {
+		return nil, fmt.Errorf("create indexer client: %w", err)
+	}
+
+	// Prepare in-memory data.
+	dataInMem, err := core.NewDataInMemory(data)
+	if err != nil {
+		return nil, fmt.Errorf("create in-memory data: %w", err)
+	}
+
+	fragmentSize := int64(4 * 1024 * 1024 * 1024) // 4GB
+	opt := transfer.UploadOption{
+		ExpectedReplica:  1,
+		TaskSize:         10,
+		SkipTx:           true,
+		FinalityRequired: transfer.FileFinalized,
+		FastMode:         false,
+		Method:           "min",
+		FullTrusted:      true,
+	}
+
+	slog.Info("0g.storage.upload.sdk", "name", name, "size", len(data), "indexer", indexerURL)
+
+	txHashes, roots, err := indexerClient.SplitableUpload(ctx, w3Client, dataInMem, fragmentSize, opt)
+	if err != nil {
+		return nil, fmt.Errorf("sdk upload failed: %w", err)
+	}
+	if len(roots) == 0 {
+		return nil, fmt.Errorf("no roots returned from upload")
+	}
+
+	rootHash := roots[0].Hex()
+	slog.Info("0g.storage.upload.sdk.done",
+		"rootHash", rootHash,
+		"txHashes", len(txHashes),
+		"size", len(data),
+	)
+
+	return &UploadResult{
+		RootHash: rootHash,
+		Size:     int64(len(data)),
+	}, nil
+}
+
+// uploadHTTP uses the legacy HTTP gateway endpoint.
+func (c *LightClient) uploadHTTP(ctx context.Context, name string, data []byte) (*UploadResult, error) {
 	url := c.gatewayURL + "/upload"
 
 	var body bytes.Buffer
@@ -83,7 +204,7 @@ func (c *LightClient) Upload(ctx context.Context, name string, data []byte) (*Up
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	slog.Info("0g.storage.upload", "name", name, "size", len(data), "gateway", c.gatewayURL)
+	slog.Info("0g.storage.upload.http", "name", name, "size", len(data), "gateway", c.gatewayURL)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -93,9 +214,7 @@ func (c *LightClient) Upload(ctx context.Context, name string, data []byte) (*Up
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		// Fallback to local on any gateway error
-		slog.Warn("0g.storage.upload.gateway-failed, falling back to local", "status", resp.StatusCode, "body", string(respBody))
-		return c.uploadLocal(name, data)
+		return nil, fmt.Errorf("gateway returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result UploadResult
@@ -103,7 +222,7 @@ func (c *LightClient) Upload(ctx context.Context, name string, data []byte) (*Up
 		return nil, fmt.Errorf("parse upload response: %w (body: %s)", err, string(respBody))
 	}
 
-	slog.Info("0g.storage.upload.done", "rootHash", result.RootHash, "size", result.Size)
+	slog.Info("0g.storage.upload.http.done", "rootHash", result.RootHash, "size", result.Size)
 	return &result, nil
 }
 
@@ -174,6 +293,17 @@ func (c *LightClient) FileInfo(ctx context.Context, rootHash string) (*FileInfo,
 		return nil, err
 	}
 	return &info, nil
+}
+
+// ── Helper ──────────────────────────────────────────────────────────
+
+func hasSDKConfig() bool {
+	// SDK is opt-in because v1.3.0 can panic inside background goroutines when
+	// storage nodes haven't synced the on-chain log entry yet.
+	// To enable: set OG_STORAGE_USE_SDK=true along with the indexer + wallet config.
+	return os.Getenv("OG_STORAGE_USE_SDK") == "true" &&
+		os.Getenv("OG_STORAGE_INDEXER_URL") != "" &&
+		os.Getenv("OG_PRIVATE_KEY") != ""
 }
 
 // ── Offline fallback (dev mode) ─────────────────────────────────────

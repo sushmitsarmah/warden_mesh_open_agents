@@ -50,6 +50,7 @@ func main() {
 
 	// Initialize 0G Storage client (optional — falls back to local fs when gateway not set)
 	storageClient := storage.NewLightClient(cfg.StorageGatewayURL)
+	storageClient.SelfTest(ctx)
 
 	// Initialize disclosure publisher
 	publisher := disclosure.NewPublisher(node, gate, inftClient, storageClient)

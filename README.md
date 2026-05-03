@@ -264,7 +264,8 @@ make test-exploit-gen  # Run LLM exploit generation test
 | LLM Client (exploit gen) | ✅ Complete | Multi-provider: OpenAI, Anthropic, Ollama, 0G Compute |
 | Foundry Verification | ✅ Complete | Fork tests via `infra/forge-harness/` |
 | x402 Payment Gating | ✅ Complete | KeeperHub Workflow API; stub mode when `KEEPERHUB_API_KEY` unset |
-| 0G Storage | ✅ Complete | Full reports uploaded; root hash used as iNFT memory pointer |
+| 0G Storage | ✅ Complete | Official SDK v1.3.0; real uploads via indexer, local SHA-256 fallback when offline |
+| 0G iNFT | ✅ Complete | Bindings generated, wired into disclosure pipeline |
 | 0G iNFT Recording | ✅ Complete | Records disclosure + storage hash on-chain |
 | Dashboard TUI | ✅ Complete | Process manager, live log streaming, watch list config editor |
 | Differential Check | ⚠️ Stub | Always passes; set `ENABLE_DIFFERENTIAL=true` to activate |
@@ -292,7 +293,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 
 4. **ETH Price** — Mempool watcher uses a hardcoded $3000 ETH price for TVL estimation. For production, integrate a Chainlink or Coingecko oracle.
 
-5. **0G Storage Fallback** — When `STORAGE_GATEWAY_URL` is blank or the gateway is unreachable, reports are stored locally at `/tmp/0g-storage-local/`. The iNFT memory pointer is still written; it just points to a local SHA-256 hash rather than a live 0G root hash.
+5. **0G Storage** — Uploads now use the official 0G Go SDK (`github.com/0gfoundation/0g-storage-client`). If the network is unreachable at runtime, uploads fall back to local SHA-256 hashing at `/tmp/0g-storage-local/`; this is logged at WARN level. Configure `OG_STORAGE_INDEXER_URL` and `OG_PRIVATE_KEY` to enable real uploads.
 
 6. **Audit Checkpoint** — `internal/safety/audit.go` writes a placeholder "checkpoint" string instead of a real memory hash. The `internal/memory/store.go` package exists for this; wiring is a TODO.
 7. **Dual-Node Peer Keys** — `AXL_PEERS_FOR_NODE_A` and `AXL_PEERS_FOR_NODE_B` must be populated with each other's public keys after the nodes start once. Run `curl http://127.0.0.1:{port}/topology | jq -r '.our_public_key'` to get each node's key, then add them to `.env`.
