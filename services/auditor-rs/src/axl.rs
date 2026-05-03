@@ -18,8 +18,8 @@ pub struct AxlClient {
 
 impl AxlClient {
     pub fn new(peer_keys: Vec<String>) -> Self {
-        let api_url = std::env::var("AXL_API_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:9002".to_string());
+        let api_url = std::env::var("AXL_API_URL_NODE_B")
+            .unwrap_or_else(|_| "http://127.0.0.1:9003".to_string());
 
         tracing::info!("AXL client initialized: api_url={}, peers={}", api_url, peer_keys.len());
 
@@ -154,7 +154,7 @@ pub async fn publish_finding(finding: Finding) -> anyhow::Result<()> {
 }
 
 fn load_peer_keys_from_env() -> Vec<String> {
-    let raw = std::env::var("AXL_PEER_KEYS").unwrap_or_default();
+    let raw = std::env::var("AXL_PEERS_FOR_NODE_B").unwrap_or_default();
     if raw.is_empty() {
         return Vec::new();
     }

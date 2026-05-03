@@ -33,7 +33,7 @@ type Node struct {
 
 // NewNode creates a new AXL node client
 func NewNode(peerKeys []string) (*Node, error) {
-	apiURL := os.Getenv("AXL_API_URL")
+	apiURL := os.Getenv("AXL_API_URL_NODE_A")
 	if apiURL == "" {
 		apiURL = "http://127.0.0.1:9002"
 	}
@@ -203,7 +203,7 @@ func (n *Node) Close() {
 
 // LoadBootstrapFromEnv loads peer keys from environment
 func LoadBootstrapFromEnv() []string {
-	raw := os.Getenv("AXL_PEER_KEYS")
+	raw := os.Getenv("AXL_PEERS_FOR_NODE_A")
 	if raw == "" {
 		return nil
 	}

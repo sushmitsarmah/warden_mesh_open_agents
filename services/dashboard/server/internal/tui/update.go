@@ -240,11 +240,22 @@ func (m *Model) restartSelectedService() {
 }
 
 func (m *Model) startAllServices() {
+	// Phase 1: Start AXL nodes first (indices 0, 1)
 	for _, svc := range m.services {
-		if svc.Status == "stopped" || svc.Status == "error" {
+		if svc.Index <= 1 && (svc.Status == "stopped" || svc.Status == "error") {
 			m.startService(svc)
 		}
 	}
+
+	// Phase 2: Wait a moment for nodes to initialize before starting agents
+	go func() {
+		time.Sleep(2 * time.Second)
+		for _, svc := range m.services {
+			if svc.Index > 1 && (svc.Status == "stopped" || svc.Status == "error") {
+				m.startService(svc)
+			}
+		}
+	}()
 }
 
 func (m *Model) stopAllServices() {

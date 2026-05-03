@@ -24,10 +24,11 @@ var (
 
 // per-service accent colors (indexed by Service.Index)
 var serviceColors = []lipgloss.Color{
-	colorAccent,  // 0 AXL Node
-	colorGreen,   // 1 Scout
-	colorYellow,  // 2 Auditor
-	colorPurple,  // 3 Orchestrator
+	colorAccent,  // 0 AXL Node A
+	colorAccent,  // 1 AXL Node B
+	colorGreen,   // 2 Scout
+	colorYellow,  // 3 Auditor
+	colorPurple,  // 4 Orchestrator
 }
 
 // ── Styles ───────────────────────────────────────────────────────────
@@ -254,9 +255,10 @@ func (m Model) renderPipeline() string {
 		w = 80
 	}
 
-	// box width: (total - padding - 3 arrows * 7) / 4, clamped 13..20
+	// box width: (total - padding - arrows * 7) / num_services, clamped 13..20
 	arrowWidth := 7
-	boxW := (w - 4 - 3*arrowWidth) / 4
+	numArrows := len(m.services) - 1
+	boxW := (w - 4 - numArrows*arrowWidth) / len(m.services)
 	boxW = clamp(boxW, 13, 20)
 	innerW := boxW - 2 // subtract border chars
 
@@ -303,11 +305,11 @@ func (m Model) renderPipeline() string {
 		// Per-service stat
 		statLine := ""
 		switch i {
-		case 1: // Scout -> targets
+		case 2: // Scout -> targets
 			statLine = dimStyle.Render(fmt.Sprintf("tgt:%d", m.stats.Targets))
-		case 2: // Auditor -> findings
+		case 3: // Auditor -> findings
 			statLine = dimStyle.Render(fmt.Sprintf("fnd:%d", m.stats.Findings))
-		case 3: // Orchestrator -> exploits
+		case 4: // Orchestrator -> exploits
 			statLine = dimStyle.Render(fmt.Sprintf("exp:%d", m.stats.Exploits))
 		}
 
