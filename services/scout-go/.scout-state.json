@@ -1,1 +1,10 @@
-{}
+{
+  "Uniswap/v4-core": "46c6834698c48bc4a463a86d8420f4eb1d7f3b75",
+  "aave/aave-v3-core": "782f51917056a53a2c228701058a6c3fb233684a",
+  "compound-finance/compound-protocol": "a3214f67b73310d547e00fc578e8355911c9d376",
+  "curvefi/curve-contract": "574f44027d089de0eac765f5a74ea5ae96aba968",
+  "dydxprotocol/v4-chain": "5ee9766351ef864856a309a971b13fdd98cae2c5",
+  "gmx-io/gmx-synthetics": "a5865d1cc7758384ce7ea6654ec02af829a28a4e",
+  "makerdao/dss": "fa4f6630afb0624d04a003e920b0d71a00331d98",
+  "rocket-pool/rocketpool": "fef41a4f7cf99d7d66313c0ba04deb8ba2dabf88"
+}

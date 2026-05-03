@@ -57,6 +57,15 @@ $ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --pri
 $ cast <subcommand>
 ```
 
+### Compile and geenrate go bindings.
+
+```shell
+forge build
+cd ..
+jq '.abi' contracts/out/SwarmINFT.sol/SwarmINFT.json > contracts/out/SwarmINFT.abi.json
+abigen --abi=contracts/out/SwarmINFT.abi.json --pkg=inft --out=services/orchestrator-go/internal/inft/bindings.go
+```
+
 ### Help
 
 ```shell

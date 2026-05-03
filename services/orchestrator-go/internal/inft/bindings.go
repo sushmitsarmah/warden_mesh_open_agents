@@ -31,7 +31,7 @@ var (
 
 // InftMetaData contains all meta data concerning the Inft contract.
 var InftMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_multisig\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_orchestrator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authorizedProtocols\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"multisig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"orchestrator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recordDisclosure\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bountyUsd\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memoryDelta\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAuthorizedProtocol\",\"inputs\":[{\"name\":\"protocol\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"ok\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPaused\",\"inputs\":[{\"name\":\"_paused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"state\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"disclosuresCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"cumulativeBountyUsd\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memoryPointer\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AuthorizedProtocolSet\",\"inputs\":[{\"name\":\"protocol\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"ok\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DisclosureRecorded\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"bountyUsd\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"memoryDelta\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"paused\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_multisig\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_orchestrator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authorizedProtocols\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"memoryPointer\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"multisig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"orchestrator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recordDisclosure\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bountyUsd\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memoryDelta\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setAuthorizedProtocol\",\"inputs\":[{\"name\":\"protocol\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"ok\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPaused\",\"inputs\":[{\"name\":\"_paused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"state\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"disclosuresCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"cumulativeBountyUsd\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memPointer\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"paused\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"updateMemory\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"memoryDelta\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AuthorizedProtocolSet\",\"inputs\":[{\"name\":\"protocol\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"ok\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"DisclosureRecorded\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"bountyUsd\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"memoryDelta\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MemoryUpdated\",\"inputs\":[{\"name\":\"tokenId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"newMemoryPointer\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"paused\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false}]",
 }
 
 // InftABI is the input ABI used to generate the binding from.
@@ -211,6 +211,37 @@ func (_Inft *InftCallerSession) AuthorizedProtocols(arg0 common.Address) (bool, 
 	return _Inft.Contract.AuthorizedProtocols(&_Inft.CallOpts, arg0)
 }
 
+// MemoryPointer is a free data retrieval call binding the contract method 0x377e0b83.
+//
+// Solidity: function memoryPointer(uint256 tokenId) view returns(bytes32)
+func (_Inft *InftCaller) MemoryPointer(opts *bind.CallOpts, tokenId *big.Int) ([32]byte, error) {
+	var out []interface{}
+	err := _Inft.contract.Call(opts, &out, "memoryPointer", tokenId)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// MemoryPointer is a free data retrieval call binding the contract method 0x377e0b83.
+//
+// Solidity: function memoryPointer(uint256 tokenId) view returns(bytes32)
+func (_Inft *InftSession) MemoryPointer(tokenId *big.Int) ([32]byte, error) {
+	return _Inft.Contract.MemoryPointer(&_Inft.CallOpts, tokenId)
+}
+
+// MemoryPointer is a free data retrieval call binding the contract method 0x377e0b83.
+//
+// Solidity: function memoryPointer(uint256 tokenId) view returns(bytes32)
+func (_Inft *InftCallerSession) MemoryPointer(tokenId *big.Int) ([32]byte, error) {
+	return _Inft.Contract.MemoryPointer(&_Inft.CallOpts, tokenId)
+}
+
 // Multisig is a free data retrieval call binding the contract method 0x4783c35b.
 //
 // Solidity: function multisig() view returns(address)
@@ -275,11 +306,11 @@ func (_Inft *InftCallerSession) Orchestrator() (common.Address, error) {
 
 // State is a free data retrieval call binding the contract method 0x3e4f49e6.
 //
-// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memoryPointer, bool paused)
+// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memPointer, bool paused)
 func (_Inft *InftCaller) State(opts *bind.CallOpts, arg0 *big.Int) (struct {
 	DisclosuresCount    *big.Int
 	CumulativeBountyUsd *big.Int
-	MemoryPointer       [32]byte
+	MemPointer          [32]byte
 	Paused              bool
 }, error) {
 	var out []interface{}
@@ -288,7 +319,7 @@ func (_Inft *InftCaller) State(opts *bind.CallOpts, arg0 *big.Int) (struct {
 	outstruct := new(struct {
 		DisclosuresCount    *big.Int
 		CumulativeBountyUsd *big.Int
-		MemoryPointer       [32]byte
+		MemPointer          [32]byte
 		Paused              bool
 	})
 	if err != nil {
@@ -297,7 +328,7 @@ func (_Inft *InftCaller) State(opts *bind.CallOpts, arg0 *big.Int) (struct {
 
 	outstruct.DisclosuresCount = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	outstruct.CumulativeBountyUsd = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-	outstruct.MemoryPointer = *abi.ConvertType(out[2], new([32]byte)).(*[32]byte)
+	outstruct.MemPointer = *abi.ConvertType(out[2], new([32]byte)).(*[32]byte)
 	outstruct.Paused = *abi.ConvertType(out[3], new(bool)).(*bool)
 
 	return *outstruct, err
@@ -306,11 +337,11 @@ func (_Inft *InftCaller) State(opts *bind.CallOpts, arg0 *big.Int) (struct {
 
 // State is a free data retrieval call binding the contract method 0x3e4f49e6.
 //
-// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memoryPointer, bool paused)
+// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memPointer, bool paused)
 func (_Inft *InftSession) State(arg0 *big.Int) (struct {
 	DisclosuresCount    *big.Int
 	CumulativeBountyUsd *big.Int
-	MemoryPointer       [32]byte
+	MemPointer          [32]byte
 	Paused              bool
 }, error) {
 	return _Inft.Contract.State(&_Inft.CallOpts, arg0)
@@ -318,11 +349,11 @@ func (_Inft *InftSession) State(arg0 *big.Int) (struct {
 
 // State is a free data retrieval call binding the contract method 0x3e4f49e6.
 //
-// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memoryPointer, bool paused)
+// Solidity: function state(uint256 ) view returns(uint256 disclosuresCount, uint256 cumulativeBountyUsd, bytes32 memPointer, bool paused)
 func (_Inft *InftCallerSession) State(arg0 *big.Int) (struct {
 	DisclosuresCount    *big.Int
 	CumulativeBountyUsd *big.Int
-	MemoryPointer       [32]byte
+	MemPointer          [32]byte
 	Paused              bool
 }, error) {
 	return _Inft.Contract.State(&_Inft.CallOpts, arg0)
@@ -389,6 +420,27 @@ func (_Inft *InftSession) SetPaused(_paused bool) (*types.Transaction, error) {
 // Solidity: function setPaused(bool _paused) returns()
 func (_Inft *InftTransactorSession) SetPaused(_paused bool) (*types.Transaction, error) {
 	return _Inft.Contract.SetPaused(&_Inft.TransactOpts, _paused)
+}
+
+// UpdateMemory is a paid mutator transaction binding the contract method 0x77738c2f.
+//
+// Solidity: function updateMemory(uint256 tokenId, bytes32 memoryDelta) returns()
+func (_Inft *InftTransactor) UpdateMemory(opts *bind.TransactOpts, tokenId *big.Int, memoryDelta [32]byte) (*types.Transaction, error) {
+	return _Inft.contract.Transact(opts, "updateMemory", tokenId, memoryDelta)
+}
+
+// UpdateMemory is a paid mutator transaction binding the contract method 0x77738c2f.
+//
+// Solidity: function updateMemory(uint256 tokenId, bytes32 memoryDelta) returns()
+func (_Inft *InftSession) UpdateMemory(tokenId *big.Int, memoryDelta [32]byte) (*types.Transaction, error) {
+	return _Inft.Contract.UpdateMemory(&_Inft.TransactOpts, tokenId, memoryDelta)
+}
+
+// UpdateMemory is a paid mutator transaction binding the contract method 0x77738c2f.
+//
+// Solidity: function updateMemory(uint256 tokenId, bytes32 memoryDelta) returns()
+func (_Inft *InftTransactorSession) UpdateMemory(tokenId *big.Int, memoryDelta [32]byte) (*types.Transaction, error) {
+	return _Inft.Contract.UpdateMemory(&_Inft.TransactOpts, tokenId, memoryDelta)
 }
 
 // InftAuthorizedProtocolSetIterator is returned from FilterAuthorizedProtocolSet and is used to iterate over the raw logs and unpacked data for AuthorizedProtocolSet events raised by the Inft contract.
@@ -656,6 +708,151 @@ func (_Inft *InftFilterer) WatchDisclosureRecorded(opts *bind.WatchOpts, sink ch
 func (_Inft *InftFilterer) ParseDisclosureRecorded(log types.Log) (*InftDisclosureRecorded, error) {
 	event := new(InftDisclosureRecorded)
 	if err := _Inft.contract.UnpackLog(event, "DisclosureRecorded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// InftMemoryUpdatedIterator is returned from FilterMemoryUpdated and is used to iterate over the raw logs and unpacked data for MemoryUpdated events raised by the Inft contract.
+type InftMemoryUpdatedIterator struct {
+	Event *InftMemoryUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *InftMemoryUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(InftMemoryUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(InftMemoryUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *InftMemoryUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *InftMemoryUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// InftMemoryUpdated represents a MemoryUpdated event raised by the Inft contract.
+type InftMemoryUpdated struct {
+	TokenId          *big.Int
+	NewMemoryPointer [32]byte
+	Raw              types.Log // Blockchain specific contextual infos
+}
+
+// FilterMemoryUpdated is a free log retrieval operation binding the contract event 0x0108e271b2a5d85765983a5f22aa03b598a980660a96623ce2f498e35a2e1ef4.
+//
+// Solidity: event MemoryUpdated(uint256 indexed tokenId, bytes32 newMemoryPointer)
+func (_Inft *InftFilterer) FilterMemoryUpdated(opts *bind.FilterOpts, tokenId []*big.Int) (*InftMemoryUpdatedIterator, error) {
+
+	var tokenIdRule []interface{}
+	for _, tokenIdItem := range tokenId {
+		tokenIdRule = append(tokenIdRule, tokenIdItem)
+	}
+
+	logs, sub, err := _Inft.contract.FilterLogs(opts, "MemoryUpdated", tokenIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &InftMemoryUpdatedIterator{contract: _Inft.contract, event: "MemoryUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchMemoryUpdated is a free log subscription operation binding the contract event 0x0108e271b2a5d85765983a5f22aa03b598a980660a96623ce2f498e35a2e1ef4.
+//
+// Solidity: event MemoryUpdated(uint256 indexed tokenId, bytes32 newMemoryPointer)
+func (_Inft *InftFilterer) WatchMemoryUpdated(opts *bind.WatchOpts, sink chan<- *InftMemoryUpdated, tokenId []*big.Int) (event.Subscription, error) {
+
+	var tokenIdRule []interface{}
+	for _, tokenIdItem := range tokenId {
+		tokenIdRule = append(tokenIdRule, tokenIdItem)
+	}
+
+	logs, sub, err := _Inft.contract.WatchLogs(opts, "MemoryUpdated", tokenIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(InftMemoryUpdated)
+				if err := _Inft.contract.UnpackLog(event, "MemoryUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMemoryUpdated is a log parse operation binding the contract event 0x0108e271b2a5d85765983a5f22aa03b598a980660a96623ce2f498e35a2e1ef4.
+//
+// Solidity: event MemoryUpdated(uint256 indexed tokenId, bytes32 newMemoryPointer)
+func (_Inft *InftFilterer) ParseMemoryUpdated(log types.Log) (*InftMemoryUpdated, error) {
+	event := new(InftMemoryUpdated)
+	if err := _Inft.contract.UnpackLog(event, "MemoryUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

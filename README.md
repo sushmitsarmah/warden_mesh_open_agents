@@ -121,9 +121,9 @@ MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
 GITHUB_TOKEN=ghp_...
 
 # Optional — for 0G iNFT on-chain recording
-# OG_RPC_URL=https://rpc-testnet.0g.ai
+# OG_RPC_URL=https://evmrpc-testnet.0g.ai
 # OG_PRIVATE_KEY=0x...
-# OG_INFT_ADDRESS=0x...
+# OG_INFT_ADDRESS=0x9756eD45Fe95d53b0d72F5efe2977Df1c876089c
 
 # Optional — KeeperHub x402 production payments
 # KEEPERHUB_API_KEY=...
@@ -217,15 +217,24 @@ Check logs in the dashboard or use `axl-tail`:
 cd services/scout-go && go run ./cmd/axl-tail
 ```
 
-### 6. Deploy the iNFT Contract (0G Testnet)
+### 6. iNFT Contract (0G Testnet)
+
+The iNFT contract is already deployed on 0G Galileo Testnet.
+
+| Field | Value |
+|---|---|
+| Contract Address | `0x9756eD45Fe95d53b0d72F5efe2977Df1c876089c` |
+| Explorer | [View on ChainScan](https://chainscan-galileo.0g.ai/address/0x9756eD45Fe95d53b0d72F5efe2977Df1c876089c) |
+
+To re-deploy (optional):
 
 ```bash
 cd contracts
 export OG_PRIVATE_KEY=0x...
-forge script script/Deploy.s.sol --rpc-url https://rpc-testnet.0g.ai --broadcast
+forge script script/Deploy.s.sol --rpc-url https://evmrpc-testnet.0g.ai --broadcast
 ```
 
-Copy the deployed address into `.env` as `OG_INFT_ADDRESS`.
+Then update `.env` with the new `OG_INFT_ADDRESS`.
 
 ---
 
