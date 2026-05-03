@@ -6,20 +6,21 @@ An agentic mesh of security bots that autonomously discovers, analyzes, verifies
 
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐
-│  Scout (Go)     │────▶│  AXL Mesh    │────▶│  Auditor (Rust)  │
-│  - mempool      │     │  pub/sub     │     │  - aderyn        │
-│  - github       │     │  topics:     │     │  - slither       │
-│  - immunefi     │     │  - targets   │     │  - etherscan     │
-└─────────────────┘     │  - findings  │     └──────────────────┘
-                        │  - verified  │              │
-                        │  - published │              ▼
-                        └──────────────┘     ┌──────────────────┐
-                              ▲              │ Orchestrator (Go)│
-                              │              │ - LLM exploit gen│
-                              │              │ - Foundry verify │
-                              └──────────────│ - x402 publish   │
-                                             │ - 0G iNFT record │
-                                             └──────────────────┘
+│  Scout (Go)     │────▶│  AXL Node A  │     │  Auditor (Rust)  │
+│  - mempool      │     │  (port 9002) │◄────│  - aderyn        │
+│  - github       │     │     mesh     │     │  - slither       │
+│  - immunefi     │     │   network    │     │  - etherscan     │
+└─────────────────┘     └──────┬───────┘     └──────────────────┘
+                               │                         │
+┌─────────────────┐            │                         │
+│ Orchestrator(Go)│◄───────────┘                         │
+│ - LLM exploit   │                                      │
+│ - Foundry verify│            ┌──────────────┐         │
+│ - x402 publish  │            │  AXL Node B  │◄────────┘
+│ - 0G iNFT record│            │  (port 9003) │
+└─────────────────┘            └──────────────┘
+
+Topics: targets/discovered  |  analysis/findings  |  exploit/verified
 ```
 
 **Agents:**
@@ -126,6 +127,13 @@ GITHUB_TOKEN=ghp_...
 
 # Optional — KeeperHub x402 production payments
 # KEEPERHUB_API_KEY=...
+
+# AXL (Gensyn) mesh — updated for dual-node setup
+# Node A port 9002 (Scout + Orchestrator), Node B port 9003 (Auditor)
+# AXL_API_URL_NODE_A=http://127.0.0.1:9002
+# AXL_API_URL_NODE_B=http://127.0.0.1:9003
+# AXL_PEERS_FOR_NODE_A=<node_b_public_key>
+# AXL_PEERS_FOR_NODE_B=<node_a_public_key>
 ```
 
 ### 3. Run Everything from the Dashboard (Recommended)
@@ -139,10 +147,10 @@ make run-dashboard
 This opens the terminal UI. From there:
 
 1. Press `3` to switch to **Services** tab
-2. Use `↓` to select **AXL Node**
+2. Use `↓` to select **AXL Node A**
 3. Press `Enter` to start it
-4. Repeat for **Scout**, **Auditor**, **Orchestrator**
-5. Or press `a` to start **ALL** at once
+4. Repeat for **AXL Node B**, **Scout**, **Auditor**, **Orchestrator**
+5. Or press `a` to start **ALL** at once — nodes boot first, then agents start after a 2-second delay
 6. Press `5` to open the **Config** tab and manage watched repos, contracts, and wallets
 
 Watch the **Overview** tab (`1`) for live pipeline stats, the **Logs** tab (`2`) for real-time output, and the **Charts** tab (`4`) for visualizations.
@@ -163,24 +171,36 @@ Watch the **Overview** tab (`1`) for live pipeline stats, the **Logs** tab (`2`)
 
 ### 4. Run Services Manually (Alternative)
 
-If you prefer running each agent in its own terminal:
+If you prefer running each agent in its own terminal, first start the AXL nodes, then the agents:
 
-**Terminal 1 — Scout:**
+**Terminal 1 — AXL Node A:**
+```bash
+cd axl
+./node -config node-config-a.json
+```
+
+**Terminal 2 — AXL Node B:**
+```bash
+cd axl
+./node -config node-config-b.json
+```
+
+**Terminal 3 — Scout:**
 ```bash
 cd services/scout-go
-SWARM_PRIVATE_KEY=0x... go run ./cmd
+AXL_API_URL_NODE_A=http://127.0.0.1:9002 AXL_PEERS_FOR_NODE_A=... SWARM_PRIVATE_KEY=0x... go run ./cmd
 ```
 
-**Terminal 2 — Auditor:**
+**Terminal 4 — Auditor:**
 ```bash
 cd services/auditor-rs
-cargo run --release
+AXL_API_URL_NODE_B=http://127.0.0.1:9003 AXL_PEERS_FOR_NODE_B=... cargo run --release
 ```
 
-**Terminal 3 — Orchestrator:**
+**Terminal 5 — Orchestrator:**
 ```bash
 cd services/orchestrator-go
-OPENAI_API_KEY=sk-... go run ./cmd
+AXL_API_URL_NODE_A=http://127.0.0.1:9002 AXL_PEERS_FOR_NODE_A=... OPENAI_API_KEY=sk-... go run ./cmd
 ```
 
 ### 5. Verify the Pipeline Works
@@ -230,7 +250,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 | Component | Status | Notes |
 |---|---|---|
 | Scout (mempool + GitHub + Address) | ✅ Complete | Publishes targets to AXL; watches specific contracts & wallets |
-| AXL Mesh (pub/sub) | ✅ Complete | Pre-built arm64 binary |
+| AXL Mesh (pub/sub) | ✅ Complete | Dual-node: Node A (port 9002, Go agents) + Node B (port 9003, Rust auditor) |
 | Auditor (Aderyn + Slither) | ✅ Complete | Fetches source, runs analyzers, publishes findings |
 | LLM Client (exploit gen) | ✅ Complete | Multi-provider: OpenAI, Anthropic, Ollama, 0G Compute |
 | Foundry Verification | ✅ Complete | Fork tests via `infra/forge-harness/` |
@@ -266,6 +286,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 5. **0G Storage Fallback** — When `STORAGE_GATEWAY_URL` is blank or the gateway is unreachable, reports are stored locally at `/tmp/0g-storage-local/`. The iNFT memory pointer is still written; it just points to a local SHA-256 hash rather than a live 0G root hash.
 
 6. **Audit Checkpoint** — `internal/safety/audit.go` writes a placeholder "checkpoint" string instead of a real memory hash. The `internal/memory/store.go` package exists for this; wiring is a TODO.
+7. **Dual-Node Peer Keys** — `AXL_PEERS_FOR_NODE_A` and `AXL_PEERS_FOR_NODE_B` must be populated with each other's public keys after the nodes start once. Run `curl http://127.0.0.1:{port}/topology | jq -r '.our_public_key'` to get each node's key, then add them to `.env`.
 
 ---
 

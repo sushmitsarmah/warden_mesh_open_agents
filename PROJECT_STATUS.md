@@ -67,12 +67,12 @@
 |---|---|---|
 | Scout (mempool + GitHub + Address) | Complete | go-github/v62, Etherscan, address watcher for contracts & wallets |
 | Auditor (Aderyn + Slither) | Complete | Dual-source merge, Etherscan fetcher |
-| AXL Mesh | Complete | HTTP API pub/sub, topic routing |
+| AXL Mesh | Complete | Dual-node setup: Node A (Go agents, port 9002) + Node B (Rust auditor, port 9003), peer key exchange |
 | LLM Client | Complete | Auto-detects provider (OpenAI/Anthropic) |
 | Foundry Verification | Complete | Fork test + drain extractor live |
 | Differential Check | Placeholder | Returns `true`; opt-in via `ENABLE_DIFFERENTIAL=true` |
 | x402 Payments | Complete | KeeperHub + stub fallback for dev |
-| Dashboard TUI | Complete | Terminal UI, process manager, log viewer, config editor |
+| Dashboard TUI | Complete | Terminal UI, process manager, log viewer, config editor, dual AXL node launcher |
 | 0G iNFT | Complete | Bindings generated, wired into disclosure |
 | Rescue Lane | Disabled | Intentionally disabled for safety |
 
@@ -85,10 +85,19 @@
 3. **x402 Stub Mode** — If `KEEPERHUB_API_KEY` unset, returns placeholder URLs for development.
 4. **ETH Price** — Mempool watcher hardcodes $3000 ETH for TVL estimation. Use oracle for production.
 5. **Audit Checkpoint** — `internal/safety/audit.go` writes literal `"checkpoint"` every 100 lines instead of computing a real SHA-256 hash.
+6. **Dual-Node Bootstrap** — `AXL_PEERS_FOR_NODE_A` and `AXL_PEERS_FOR_NODE_B` must be populated with each other's public keys after the first run. This is a one-time setup step (documented in `.env`).
 
 ---
 
 ## Recently Completed
+
+### Dual-Node AXL Mesh Refactor
+- Split single AXL node into **Node A** (port 9002) and **Node B** (port 9003)
+- Node A hosts Go-based **Scout** and **Orchestrator**
+- Node B hosts Rust-based **Auditor**
+- Updated environment variables: `AXL_API_URL_NODE_A`, `AXL_API_URL_NODE_B`, `AXL_PEERS_FOR_NODE_A`, `AXL_PEERS_FOR_NODE_B`
+- Created separate node configs (`node-config-a.json`, `node-config-b.json`) with independent ed25519 keys
+- Dashboard TUI now launches both nodes; `Start ALL` bootstraps nodes first, then agents after a 2-second delay
 
 ### 0G iNFT Integration
 - Generated Go bindings from `SwarmINFT.abi.json` using `abigen`
