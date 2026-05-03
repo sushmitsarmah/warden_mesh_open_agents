@@ -17,8 +17,10 @@
 - Deduper (content-ID LRU cache)
 - Priority scorer (TVL × novelty × kind)
 - GitHub commit watcher (**go-github/v62**, polls repos, deduped, rate-limited)
+- Address watcher (monitors specific contracts & wallets for on-chain activity, emits targets)
 - Etherscan source fetcher (verified contract source + multi-file support)
 - AXL publisher (HTTP API wrapper, broadcasts to peers)
+- Unified watch config (`configs/repos.yaml`: repos, contracts, wallets)
 
 **Auditor (Rust)**
 - Aderyn runner (shells out to binary, parses markdown)
@@ -39,10 +41,11 @@
 - Memory store (tamper-evident log)
 
 **Dashboard (TUI)**
-- Bubble Tea terminal UI with 3 tabs: Overview, Logs, Services
+- Bubble Tea terminal UI with 5 tabs: Overview, Logs, Services, Charts, Config
 - Live process manager: start/stop/restart all 4 agents from terminal
 - 500-line ring buffer log viewer per service
 - AXL node launcher from submodule (no manual `cd axl` needed)
+- **Config editor**: add/remove repos, contracts, and wallet addresses from the TUI (with confirmation on delete, validation, and auto-save)
 
 **Contracts (Solidity)**
 - `SwarmINFT.sol` — iNFT with pause, authorization, disclosure tracking
@@ -62,14 +65,14 @@
 
 | Component | Status | Notes |
 |---|---|---|
-| Scout (mempool + GitHub) | Complete | go-github/v62, Etherscan, deduping, scoring |
+| Scout (mempool + GitHub + Address) | Complete | go-github/v62, Etherscan, address watcher for contracts & wallets |
 | Auditor (Aderyn + Slither) | Complete | Dual-source merge, Etherscan fetcher |
 | AXL Mesh | Complete | HTTP API pub/sub, topic routing |
 | LLM Client | Complete | Auto-detects provider (OpenAI/Anthropic) |
 | Foundry Verification | Complete | Fork test + drain extractor live |
 | Differential Check | Placeholder | Returns `true`; opt-in via `ENABLE_DIFFERENTIAL=true` |
 | x402 Payments | Complete | KeeperHub + stub fallback for dev |
-| Dashboard TUI | Complete | Terminal UI, process manager, log viewer |
+| Dashboard TUI | Complete | Terminal UI, process manager, log viewer, config editor |
 | 0G iNFT | Complete | Bindings generated, wired into disclosure |
 | Rescue Lane | Disabled | Intentionally disabled for safety |
 
@@ -93,6 +96,12 @@
 - Added 0G config to `.env`: `OG_RPC_URL`, `OG_PRIVATE_KEY`, `OG_INFT_ADDRESS`
 - Fixed `safety/pause.go` to use new `IsPaused(tokenID)` signature
 
+### Config-Driven Watch Lists & Address Watcher
+- Extended `configs/repos.yaml` schema to include `contracts` and `wallets` fields
+- Built `AddressWatcher` in Scout that polls the chain for transactions involving watched contracts/wallets
+- Emits targets with priority scoring when activity is detected
+- Dashboard TUI Config tab provides full CRUD for repos, contracts, and wallets
+
 ### GitHub Commit Watcher
 - Added `go-github/v62` dependency to scout-go
 - Implemented `GitHubWatcher` with repo polling, commit deduplication, rate-limit awareness
@@ -101,9 +110,10 @@
 
 ### Terminal Dashboard (TUI)
 - Replaced placeholder HTTP server with Bubble Tea terminal UI
-- 3 tabs: Overview (stats), Logs (live stream), Services (process manager)
+- 5 tabs: Overview (stats), Logs (live stream), Services (process manager), Charts (visualization), Config (watch list editor)
 - Start/stop/restart all agents including AXL node from `axl/` submodule
 - 500-line ring buffer per service for log history
+- Live sparklines, funnel charts, activity timeline, and service health bars
 
 ### Nix Flake
 - Added `flake.nix` + `shell.nix` for reproducible dev environment

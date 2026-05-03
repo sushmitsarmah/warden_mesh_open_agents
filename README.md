@@ -23,10 +23,10 @@ An agentic mesh of security bots that autonomously discovers, analyzes, verifies
 ```
 
 **Agents:**
-- **Scout** — Watches Ethereum mempool (Sepolia), GitHub commits (Aave, Uniswap, Compound), and Immunefi for new targets. Emits `Target` messages.
+- **Scout** — Watches Ethereum mempool (Sepolia), GitHub commits, Immunefi, and **specific contract & wallet addresses** for new targets. Emits `Target` messages.
 - **Auditor** — Consumes targets, fetches verified source from Etherscan, runs Aderyn + Slither dual-source static analysis. Emits `Finding` messages.
 - **Orchestrator** — Consumes findings, prompts LLM (OpenAI/Anthropic/Ollama) to generate exploit PoC, runs Foundry live-fork verification, generates paywalled reports (x402), and records disclosures on 0G iNFT.
-- **Dashboard** — HTTP server subscribing to AXL topics for real-time observability.
+- **Dashboard** — Terminal UI (Bubble Tea) with live process management, log viewer, and a built-in **Config Editor** for managing watch lists.
 
 **Mesh:** Gensyn AXL provides topic-based pub/sub across all agents.
 
@@ -143,19 +143,21 @@ This opens the terminal UI. From there:
 3. Press `Enter` to start it
 4. Repeat for **Scout**, **Auditor**, **Orchestrator**
 5. Or press `a` to start **ALL** at once
+6. Press `5` to open the **Config** tab and manage watched repos, contracts, and wallets
 
-Watch the **Overview** tab (`1`) for live pipeline stats and the **Logs** tab (`2`) for real-time output.
+Watch the **Overview** tab (`1`) for live pipeline stats, the **Logs** tab (`2`) for real-time output, and the **Charts** tab (`4`) for visualizations.
 
 **Keybindings:**
 
 | Key | Action |
 |---|---|
-| `1-3` | Switch tabs (Overview / Logs / Services) |
-| `↑↓` / `j/k` | Select service |
+| `1-5` | Switch tabs (Overview / Logs / Services / Charts / Config) |
+| `↑↓` / `j/k` | Select service / item |
+| `Tab` / `←→` | Switch sub-section (in Config tab: Repos / Contracts / Wallets) |
 | `Enter` / `s` | Toggle start/stop selected service |
-| `a` | Start ALL services |
-| `x` | Stop ALL services |
-| `r` | Restart selected service |
+| `a` | Start ALL services (or Add item in Config editor) |
+| `x` | Stop ALL services (or Remove item in Config editor — confirms first) |
+| `r` | Restart selected service (or Reload config in Config editor) |
 | `Ctrl+L` | Clear logs |
 | `q` / `Ctrl+C` | Quit |
 
@@ -227,7 +229,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 
 | Component | Status | Notes |
 |---|---|---|
-| Scout (mempool + GitHub) | ✅ Complete | Publishes targets to AXL |
+| Scout (mempool + GitHub + Address) | ✅ Complete | Publishes targets to AXL; watches specific contracts & wallets |
 | AXL Mesh (pub/sub) | ✅ Complete | Pre-built arm64 binary |
 | Auditor (Aderyn + Slither) | ✅ Complete | Fetches source, runs analyzers, publishes findings |
 | LLM Client (exploit gen) | ✅ Complete | Multi-provider: OpenAI, Anthropic, Ollama, 0G Compute |
@@ -235,7 +237,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 | x402 Payment Gating | ✅ Complete | Stub mode when `KEEPERHUB_API_KEY` unset |
 | 0G Storage | ✅ Complete | Full reports uploaded; root hash used as iNFT memory pointer |
 | 0G iNFT Recording | ✅ Complete | Records disclosure + storage hash on-chain |
-| Dashboard TUI | ✅ Complete | Process manager with live log streaming |
+| Dashboard TUI | ✅ Complete | Process manager, live log streaming, watch list config editor |
 | Differential Check | ⚠️ Stub | Always passes; set `ENABLE_DIFFERENTIAL=true` to activate |
 | Rescue Lane | 🚫 Disabled | Intentionally off for hackathon (requires multisig) |
 

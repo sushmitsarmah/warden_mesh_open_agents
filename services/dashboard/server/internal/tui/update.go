@@ -17,10 +17,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "tab", "right":
-			m.activeTab = (m.activeTab + 1) % len(m.tabs)
+			if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				m.cfgFocus = (m.cfgFocus + 1) % 3
+			} else {
+				m.activeTab = (m.activeTab + 1) % len(m.tabs)
+			}
 
 		case "shift+tab", "left":
-			m.activeTab = (m.activeTab - 1 + len(m.tabs)) % len(m.tabs)
+			if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				m.cfgFocus = (m.cfgFocus - 1 + 3) % 3
+			} else {
+				m.activeTab = (m.activeTab - 1 + len(m.tabs)) % len(m.tabs)
+			}
 
 		case "1":
 			m.activeTab = 0
@@ -36,19 +44,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.activeTab == 2 {
 				m.selected = max(0, m.selected-1)
-			} else if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
-				m.repoCursor = max(0, m.repoCursor-1)
+			} else if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				c := m.cfgCursors[m.cfgFocus]
+				m.cfgCursors[m.cfgFocus] = max(0, c-1)
 			}
 
 		case "down", "j":
 			if m.activeTab == 2 {
 				m.selected = min(len(m.services)-1, m.selected+1)
-			} else if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
-				repoCount := len(m.repoCfg.Repos)
-				if repoCount == 0 {
-					m.repoCursor = 0
-				} else {
-					m.repoCursor = min(repoCount-1, m.repoCursor+1)
+			} else if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				n := m.cfgListLen()
+				if n > 0 {
+					c := m.cfgCursors[m.cfgFocus]
+					m.cfgCursors[m.cfgFocus] = min(n-1, c+1)
 				}
 			}
 
@@ -64,67 +72,67 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.activeTab == 4 {
-				if m.confirmDelete {
-					m.confirmDelete = false
-					m.removeSelectedRepo()
-				} else if m.addingRepo {
-					m.addNewRepo()
+				if m.cfgConfirmDel {
+					m.cfgConfirmDel = false
+					m.cfgRemoveItem()
+				} else if m.cfgAdding {
+					m.cfgAddItem()
 				}
 			} else {
 				m.toggleSelectedService()
 			}
 
 		case "s":
-			if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+			if !(m.activeTab == 4 && (m.cfgAdding || m.cfgConfirmDel)) {
 				m.toggleSelectedService()
 			}
 
 		case "a":
-			if m.activeTab == 4 && !m.confirmDelete {
-				m.addingRepo = true
-				m.repoInput = ""
-				m.repoErr = ""
-			} else if m.activeTab != 4 || !m.confirmDelete {
+			if m.activeTab == 4 && !m.cfgConfirmDel {
+				m.cfgAdding = true
+				m.cfgInput = ""
+				m.cfgErr = ""
+			} else if m.activeTab != 4 || !m.cfgConfirmDel {
 				m.startAllServices()
 			}
 
 		case "x":
-			if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
-				if len(m.repoCfg.Repos) > 0 {
-					m.confirmDelete = true
-					m.repoErr = ""
+			if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				if m.cfgListLen() > 0 {
+					m.cfgConfirmDel = true
+					m.cfgErr = ""
 				}
-			} else if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+			} else if !(m.activeTab == 4 && (m.cfgAdding || m.cfgConfirmDel)) {
 				m.stopAllServices()
 			}
 
 		case "r":
-			if m.activeTab == 4 && !m.addingRepo && !m.confirmDelete {
-				m.reloadRepoConfig()
-			} else if !(m.activeTab == 4 && (m.addingRepo || m.confirmDelete)) {
+			if m.activeTab == 4 && !m.cfgAdding && !m.cfgConfirmDel {
+				m.cfgReload()
+			} else if !(m.activeTab == 4 && (m.cfgAdding || m.cfgConfirmDel)) {
 				m.restartSelectedService()
 			}
 
 		case "y":
-			if m.confirmDelete {
-				m.confirmDelete = false
-				m.removeSelectedRepo()
+			if m.cfgConfirmDel {
+				m.cfgConfirmDel = false
+				m.cfgRemoveItem()
 			}
 
 		case "n":
-			if m.confirmDelete {
-				m.confirmDelete = false
-				m.repoErr = ""
+			if m.cfgConfirmDel {
+				m.cfgConfirmDel = false
+				m.cfgErr = ""
 			}
 
 		case "esc":
-			if m.addingRepo {
-				m.addingRepo = false
-				m.repoInput = ""
-				m.repoErr = ""
-			} else if m.confirmDelete {
-				m.confirmDelete = false
-				m.repoErr = ""
+			if m.cfgAdding {
+				m.cfgAdding = false
+				m.cfgInput = ""
+				m.cfgErr = ""
+			} else if m.cfgConfirmDel {
+				m.cfgConfirmDel = false
+				m.cfgErr = ""
 			}
 
 		case "ctrl+l":
@@ -133,16 +141,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "backspace":
-			if m.addingRepo {
-				if len(m.repoInput) > 0 {
-					m.repoInput = m.repoInput[:len(m.repoInput)-1]
-				}
+			if m.cfgAdding && len(m.cfgInput) > 0 {
+				m.cfgInput = m.cfgInput[:len(m.cfgInput)-1]
 			}
 
 		default:
-			if m.addingRepo {
+			if m.cfgAdding {
 				if msg.Type == tea.KeyRunes {
-					m.repoInput += string(msg.Runes)
+					m.cfgInput += string(msg.Runes)
 				}
 			}
 		}
@@ -152,16 +158,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case tickMsg:
-		// Advance animation frame (0-39)
 		m.frame = (m.frame + 1) % 40
 		m.tickCount++
-
-		// Every 5 ticks (~1 second) shift sparkline buckets
 		if m.tickCount%5 == 0 {
 			m.stats.shiftBuckets()
 		}
-
-		// Promote booting → running after 3 seconds
 		for _, svc := range m.services {
 			if svc.Status == "booting" && svc.Process != nil && time.Since(svc.Process.started) > 3*time.Second {
 				svc.Status = "running"
@@ -191,35 +192,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// parseLogLine inspects a log line and updates pipeline stats / events accordingly.
 func (m *Model) parseLogLine(svcName, line string) {
 	lower := strings.ToLower(line)
-
 	switch {
 	case strings.Contains(lower, "exploit generated"):
 		m.stats.Exploits++
 		m.stats.exploitAcc++
 		m.addEvent(svcName, line, "exploit")
-
 	case strings.Contains(lower, "disclosure published"):
 		m.stats.Disclosures++
 		m.stats.disclosureAcc++
 		m.addEvent(svcName, line, "disclosure")
-
 	case strings.Contains(lower, "findings for target") || strings.Contains(lower, "publish_finding"):
 		m.stats.Findings++
 		m.stats.findingAcc++
 		m.addEvent(svcName, line, "finding")
-
 	case strings.Contains(lower, "published target") ||
-		(strings.Contains(lower, "target") && strings.Contains(lower, "discovered")):
+		(strings.Contains(lower, "target") && strings.Contains(lower, "emitted")) ||
+		strings.Contains(lower, "address watcher"):
 		m.stats.Targets++
 		m.stats.targetAcc++
 		m.addEvent(svcName, line, "target")
-
 	case strings.Contains(lower, "error") && !strings.Contains(lower, "no error"):
 		m.addEvent(svcName, line, "error")
-
 	case strings.Contains(lower, "warn"):
 		m.addEvent(svcName, line, "warn")
 	}
@@ -263,72 +258,123 @@ func (m *Model) shutdownAll() {
 	time.Sleep(300 * time.Millisecond)
 }
 
-// ── Repo config helpers ──────────────────────────────────────────────
+// ── Config helpers ───────────────────────────────────────────────────
 
-func (m *Model) addNewRepo() {
-	input := strings.TrimSpace(m.repoInput)
+func (m *Model) cfgAddItem() {
+	input := strings.TrimSpace(m.cfgInput)
 	if input == "" {
-		m.repoErr = "repo cannot be empty"
+		m.cfgErr = "cannot be empty"
 		return
 	}
-	// Basic validation: must be owner/name format
-	parts := strings.Split(input, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		m.repoErr = "invalid format (use owner/name)"
-		return
+
+	switch m.cfgFocus {
+	case 0:
+		parts := strings.Split(input, "/")
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			m.cfgErr = "invalid format (use owner/name)"
+			return
+		}
+		if cfgContains(m.watchCfg.Repos, input) {
+			m.cfgErr = "already watched"
+			return
+		}
+		m.watchCfg.Repos = append(m.watchCfg.Repos, input)
+		m.addEvent("Dashboard", "added repo "+input, "target")
+	case 1:
+		if !strings.HasPrefix(input, "0x") || len(input) != 42 {
+			m.cfgErr = "invalid address (use 0x + 40 hex chars)"
+			return
+		}
+		if cfgContains(m.watchCfg.Contracts, input) {
+			m.cfgErr = "already watched"
+			return
+		}
+		m.watchCfg.Contracts = append(m.watchCfg.Contracts, input)
+		m.addEvent("Dashboard", "added contract "+input, "target")
+	case 2:
+		if !strings.HasPrefix(input, "0x") || len(input) != 42 {
+			m.cfgErr = "invalid address (use 0x + 40 hex chars)"
+			return
+		}
+		if cfgContains(m.watchCfg.Wallets, input) {
+			m.cfgErr = "already watched"
+			return
+		}
+		m.watchCfg.Wallets = append(m.watchCfg.Wallets, input)
+		m.addEvent("Dashboard", "added wallet "+input, "target")
 	}
-	// Dedupe
-	for _, r := range m.repoCfg.Repos {
-		if r == input {
-			m.repoErr = "repo already watched"
+
+	if m.watchCfgPath != "" {
+		if err := saveRepoConfig(m.watchCfgPath, m.watchCfg); err != nil {
+			m.cfgErr = "save failed: " + err.Error()
 			return
 		}
 	}
-	m.repoCfg.Repos = append(m.repoCfg.Repos, input)
-	if m.repoCfgPath != "" {
-		if err := saveRepoConfig(m.repoCfgPath, m.repoCfg); err != nil {
-			m.repoErr = "save failed: " + err.Error()
-			return
-		}
-	}
-	m.addingRepo = false
-	m.repoInput = ""
-	m.repoErr = ""
-	m.addEvent("Dashboard", "added repo "+input, "target")
+	m.cfgAdding = false
+	m.cfgInput = ""
+	m.cfgErr = ""
 }
 
-func (m *Model) removeSelectedRepo() {
-	if m.repoCursor < 0 || m.repoCursor >= len(m.repoCfg.Repos) {
-		return
+func (m *Model) cfgRemoveItem() {
+	c := m.cfgCursors[m.cfgFocus]
+	var removed string
+	switch m.cfgFocus {
+	case 0:
+		if c < 0 || c >= len(m.watchCfg.Repos) {
+			return
+		}
+		removed = m.watchCfg.Repos[c]
+		m.watchCfg.Repos = append(m.watchCfg.Repos[:c], m.watchCfg.Repos[c+1:]...)
+	case 1:
+		if c < 0 || c >= len(m.watchCfg.Contracts) {
+			return
+		}
+		removed = m.watchCfg.Contracts[c]
+		m.watchCfg.Contracts = append(m.watchCfg.Contracts[:c], m.watchCfg.Contracts[c+1:]...)
+	case 2:
+		if c < 0 || c >= len(m.watchCfg.Wallets) {
+			return
+		}
+		removed = m.watchCfg.Wallets[c]
+		m.watchCfg.Wallets = append(m.watchCfg.Wallets[:c], m.watchCfg.Wallets[c+1:]...)
 	}
-	removed := m.repoCfg.Repos[m.repoCursor]
-	m.repoCfg.Repos = append(m.repoCfg.Repos[:m.repoCursor], m.repoCfg.Repos[m.repoCursor+1:]...)
-	if m.repoCfgPath != "" {
-		if err := saveRepoConfig(m.repoCfgPath, m.repoCfg); err != nil {
-			m.repoErr = "save failed: " + err.Error()
+
+	if m.watchCfgPath != "" {
+		if err := saveRepoConfig(m.watchCfgPath, m.watchCfg); err != nil {
+			m.cfgErr = "save failed: " + err.Error()
 			return
 		}
 	}
-	if m.repoCursor >= len(m.repoCfg.Repos) && len(m.repoCfg.Repos) > 0 {
-		m.repoCursor = len(m.repoCfg.Repos) - 1
+
+	if m.cfgCursors[m.cfgFocus] >= m.cfgListLen() && m.cfgListLen() > 0 {
+		m.cfgCursors[m.cfgFocus] = m.cfgListLen() - 1
 	}
-	m.addEvent("Dashboard", "removed repo "+removed, "target")
+	m.addEvent("Dashboard", "removed "+removed, "target")
 }
 
-func (m *Model) reloadRepoConfig() {
-	if m.repoCfgPath == "" {
-		m.repoErr = "no config path known"
+func (m *Model) cfgReload() {
+	if m.watchCfgPath == "" {
+		m.cfgErr = "no config path known"
 		return
 	}
-	cfg, err := loadRepoConfig(m.repoCfgPath)
+	cfg, err := loadRepoConfig(m.watchCfgPath)
 	if err != nil {
-		m.repoErr = "reload failed: " + err.Error()
+		m.cfgErr = "reload failed: " + err.Error()
 		return
 	}
-	m.repoCfg = cfg
-	m.repoCursor = 0
-	m.repoErr = ""
-	m.addEvent("Dashboard", "reloaded repo config", "target")
+	m.watchCfg = cfg
+	m.cfgCursors = [3]int{0, 0, 0}
+	m.cfgErr = ""
+	m.addEvent("Dashboard", "reloaded watch config", "target")
+}
+
+func cfgContains(list []string, item string) bool {
+	for _, s := range list {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) startService(svc *Service) {

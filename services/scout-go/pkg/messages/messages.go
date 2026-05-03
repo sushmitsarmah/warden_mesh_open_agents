@@ -18,6 +18,7 @@ type Target struct {
 	Repo         string     `json:"repo,omitempty"`
 	CommitSha    string     `json:"commitSha,omitempty"`
 	SourceURL    string     `json:"sourceUrl,omitempty"`
+	TxHash       string     `json:"txHash,omitempty"`
 	DiscoveredAt time.Time  `json:"discoveredAt"`
 	Priority     float64    `json:"priority"`
 	TVLUsd       float64    `json:"tvlUsd,omitempty"`

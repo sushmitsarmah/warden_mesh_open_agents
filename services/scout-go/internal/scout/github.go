@@ -20,9 +20,11 @@ const (
 	defaultConfig = "configs/repos.yaml"
 )
 
-// RepoConfig is the structure of configs/repos.yaml.
-type RepoConfig struct {
+// WatchConfig mirrors the structure of configs/repos.yaml.
+type WatchConfig struct {
 	Repos               []string `yaml:"repos"`
+	Contracts           []string `yaml:"contracts"`
+	Wallets             []string `yaml:"wallets"`
 	PollIntervalSeconds int      `yaml:"poll_interval_seconds"`
 }
 
@@ -35,18 +37,18 @@ type GitHubWatcher struct {
 	stateFile    string
 }
 
-// LoadRepoConfig reads the YAML repo watch list from path (falls back to defaultConfig).
-func LoadRepoConfig(path string) (*RepoConfig, error) {
+// LoadRepoConfig reads the YAML watch config from path (falls back to defaultConfig).
+func LoadRepoConfig(path string) (*WatchConfig, error) {
 	if path == "" {
 		path = defaultConfig
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read repos config: %w", err)
+		return nil, fmt.Errorf("read watch config: %w", err)
 	}
-	var cfg RepoConfig
+	var cfg WatchConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parse repos config: %w", err)
+		return nil, fmt.Errorf("parse watch config: %w", err)
 	}
 	if cfg.PollIntervalSeconds == 0 {
 		cfg.PollIntervalSeconds = 60

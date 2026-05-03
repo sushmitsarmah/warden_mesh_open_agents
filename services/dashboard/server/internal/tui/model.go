@@ -94,20 +94,17 @@ type PipelineStats struct {
 	Exploits    int
 	Disclosures int
 
-	// Sparkline buckets — newest is index 19
 	TargetBuckets     [20]int
 	FindingBuckets    [20]int
 	ExploitBuckets    [20]int
 	DisclosureBuckets [20]int
 
-	// Accumulators for the current second
 	targetAcc     int
 	findingAcc    int
 	exploitAcc    int
 	disclosureAcc int
 }
 
-// shiftBuckets shifts all sparkline arrays left by one and writes accumulators into index 19.
 func (s *PipelineStats) shiftBuckets() {
 	for i := 0; i < 19; i++ {
 		s.TargetBuckets[i] = s.TargetBuckets[i+1]
@@ -131,7 +128,7 @@ type EventLine struct {
 	Time    string
 	Service string
 	Text    string
-	Kind    string // target, finding, exploit, disclosure, error, warn
+	Kind    string
 }
 
 // ── Service ─────────────────────────────────────────────────────────
@@ -140,7 +137,7 @@ type Service struct {
 	Name      string
 	Cmd       []string
 	Dir       string
-	Status    string // running, stopped, booting, error
+	Status    string
 	Logs      *RingBuffer
 	Process   *Process
 	Index     int
@@ -163,25 +160,25 @@ type Model struct {
 	tabs        []string
 	activeTab   int
 	services    []*Service
-	selected    int // selected service index on Services tab
-	logViewSvc  int // which service to show in Logs tab
+	selected    int
+	logViewSvc  int
 	width       int
 	height      int
 	msgCh       chan tea.Msg
 	quitting    bool
-	frame       int // 0-39 animation counter
+	frame       int
 	tickCount   int
 	stats       PipelineStats
-	events      []EventLine // max 50
+	events      []EventLine
 
-	// Config tab: repo management
-	repoCfg       *RepoConfig   // loaded from repos.yaml
-	repoCfgPath   string        // path to repos.yaml
-	repoCursor    int           // selected repo in config list
-	addingRepo    bool          // true when user is typing a new repo
-	confirmDelete bool          // true when waiting for delete confirmation
-	repoInput     string        // current text in add form
-	repoErr       string        // error message to display in config tab
+	watchCfg      *WatchConfig
+	watchCfgPath  string
+	cfgFocus      int
+	cfgCursors    [3]int
+	cfgAdding     bool
+	cfgConfirmDel bool
+	cfgInput      string
+	cfgErr        string
 }
 
 func NewModel() Model {
@@ -192,18 +189,16 @@ func NewModel() Model {
 		msgCh:    make(chan tea.Msg, 256),
 	}
 
-	// Try to locate the scout-go repo config relative to the dashboard binary.
-	// The dashboard's CWD is assumed to be at repo root or services/dashboard/server.
 	for _, base := range []string{"../../scout-go", "services/scout-go", "scout-go"} {
-		p := repoConfigPath(base)
+		p := watchConfigPath(base)
 		if cfg, err := loadRepoConfig(p); err == nil {
-			m.repoCfg = cfg
-			m.repoCfgPath = p
+			m.watchCfg = cfg
+			m.watchCfgPath = p
 			break
 		}
 	}
-	if m.repoCfg == nil {
-		m.repoCfg = &RepoConfig{Repos: []string{}, PollIntervalSeconds: 60}
+	if m.watchCfg == nil {
+		m.watchCfg = &WatchConfig{Repos: []string{}, Contracts: []string{}, Wallets: []string{}, PollIntervalSeconds: 60}
 	}
 
 	return m
@@ -228,7 +223,6 @@ func (m Model) listenCmd() tea.Cmd {
 	}
 }
 
-// addEvent appends an event, keeping the list at most 50 entries.
 func (m *Model) addEvent(svcName, text, kind string) {
 	e := EventLine{
 		Time:    time.Now().Format("15:04:05"),

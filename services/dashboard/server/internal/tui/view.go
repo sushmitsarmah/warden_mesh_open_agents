@@ -624,88 +624,6 @@ func (m Model) renderFooter() string {
 	return hintStyle.Render("  " + strings.Join(hints, "  "))
 }
 
-// ── Tab 5: Config ─────────────────────────────────────────────────────
-
-func (m Model) renderConfig(h int) string {
-	var b strings.Builder
-
-	title := lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("WATCHED REPOSITORIES")
-	pathLine := dimStyle.Render("  config: ")
-	if m.repoCfgPath != "" {
-		pathLine += lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Render(m.repoCfgPath)
-	} else {
-		pathLine += lipgloss.NewStyle().Foreground(colorRed).Render("(file not found)")
-	}
-	b.WriteString(title + "\n" + pathLine + "\n\n")
-
-	if m.addingRepo {
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(colorGreen).Render("  Add new repo  ") + "\n")
-		b.WriteString(dimStyle.Render("  format: owner/name  \n\n"))
-		inputBox := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorGreen).
-			Width(m.width - 8).
-			Padding(0, 1).
-			Render(m.repoInput + "█")
-		b.WriteString("  " + inputBox + "\n")
-		if m.repoErr != "" {
-			b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  " + m.repoErr) + "\n")
-		}
-		b.WriteString(dimStyle.Render("  Enter to confirm  •  Esc to cancel") + "\n")
-		return logPaneStyle.Render(b.String())
-	}
-
-	if m.confirmDelete {
-		if m.repoCursor >= 0 && m.repoCursor < len(m.repoCfg.Repos) {
-			repo := m.repoCfg.Repos[m.repoCursor]
-			warn := lipgloss.NewStyle().Foreground(colorRed).Bold(true).Render("  Remove " + repo + "?")
-			b.WriteString(warn + "\n\n")
-			b.WriteString(dimStyle.Render("  y/Enter to confirm  •  n/Esc to cancel") + "\n")
-		}
-		return logPaneStyle.Render(b.String())
-	}
-
-	// Repo list
-	if len(m.repoCfg.Repos) == 0 {
-		b.WriteString(dimStyle.Render("  (no repos configured)\n"))
-	} else {
-		b.WriteString(dimStyle.Render("  #  repo\n"))
-		for i, r := range m.repoCfg.Repos {
-			var prefix string
-			if i == m.repoCursor {
-				prefix = lipgloss.NewStyle().Foreground(colorBlue).Bold(true).Render("▶")
-			} else {
-				prefix = " "
-			}
-			num := fmt.Sprintf("%2d", i+1)
-			b.WriteString(fmt.Sprintf(" %s %s  %s\n", prefix, dimStyle.Render(num), r))
-		}
-	}
-
-	b.WriteString("\n")
-	if m.repoErr != "" {
-		b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  "+m.repoErr) + "\n")
-	}
-
-	var hints []string
-	if m.confirmDelete {
-		hints = []string{
-			keyStyle.Render("y/Enter") + dimStyle.Render(" confirm"),
-			keyStyle.Render("n/Esc") + dimStyle.Render(" cancel"),
-		}
-	} else {
-		hints = []string{
-			keyStyle.Render("↑/↓") + dimStyle.Render(" select"),
-			keyStyle.Render("a") + dimStyle.Render(" add"),
-			keyStyle.Render("x") + dimStyle.Render(" remove"),
-			keyStyle.Render("r") + dimStyle.Render(" reload"),
-		}
-	}
-	b.WriteString(hintStyle.Render("  " + strings.Join(hints, "  ")))
-
-	return logPaneStyle.Render(b.String())
-}
-
 // ── Tab 4: Charts ─────────────────────────────────────────────────────
 
 func (m Model) renderCharts(h int) string {
@@ -1012,4 +930,142 @@ func stackedCell(posFromBottom, tH, fH, eH, dH int) string {
 		return lipgloss.NewStyle().Foreground(colorCyan).Render("██")
 	}
 	return "  "
+}
+
+// ── Tab 5: Config ─────────────────────────────────────────────────────
+
+func (m Model) renderConfig(h int) string {
+	var b strings.Builder
+
+	pathLine := dimStyle.Render("config: ")
+	if m.watchCfgPath != "" {
+		pathLine += lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Render(m.watchCfgPath)
+	} else {
+		pathLine += lipgloss.NewStyle().Foreground(colorRed).Render("(file not found)")
+	}
+	b.WriteString(pathLine + "\n\n")
+
+	if m.cfgAdding {
+		label := m.cfgSectionLabel()
+		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(colorGreen).Render("  Add new "+label) + "\n")
+		inputBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorGreen).
+			Width(m.width - 8).
+			Padding(0, 1).
+			Render(m.cfgInput + "█")
+		b.WriteString("  " + inputBox + "\n")
+		if m.cfgErr != "" {
+			b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  " + m.cfgErr) + "\n")
+		}
+		b.WriteString(dimStyle.Render("  Enter to confirm  •  Esc to cancel") + "\n")
+		return logPaneStyle.Render(b.String())
+	}
+
+	if m.cfgConfirmDel {
+		item := m.cfgSelectedItem()
+		if item != "" {
+			warn := lipgloss.NewStyle().Foreground(colorRed).Bold(true).Render("  Remove " + item + "?")
+			b.WriteString(warn + "\n\n")
+			b.WriteString(dimStyle.Render("  y/Enter to confirm  •  n/Esc to cancel") + "\n")
+		}
+		return logPaneStyle.Render(b.String())
+	}
+
+	sections := [3][]string{
+		m.watchCfg.Repos,
+		m.watchCfg.Contracts,
+		m.watchCfg.Wallets,
+	}
+	labels := [3]string{"REPOSITORIES", "CONTRACTS", "WALLETS"}
+
+	for secIdx := range sections {
+		b.WriteString(m.renderConfigSection(secIdx, sections[secIdx], labels[secIdx]) + "\n")
+	}
+
+	b.WriteString("\n")
+	if m.cfgErr != "" {
+		b.WriteString(lipgloss.NewStyle().Foreground(colorRed).Render("  "+m.cfgErr) + "\n")
+	}
+
+	b.WriteString(hintStyle.Render("  Tab/←→ switch section  •  ↑/↓ move  •  a add  •  x remove  •  r reload"))
+
+	return logPaneStyle.Render(b.String())
+}
+
+func (m Model) cfgSectionLabel() string {
+	switch m.cfgFocus {
+	case 0:
+		return "repo (owner/name)"
+	case 1:
+		return "contract address (0x...)"
+	case 2:
+		return "wallet address (0x...)"
+	}
+	return "item"
+}
+
+func (m Model) cfgSelectedItem() string {
+	cursors := m.cfgCursors[m.cfgFocus]
+	switch m.cfgFocus {
+	case 0:
+		if cursors < len(m.watchCfg.Repos) {
+			return m.watchCfg.Repos[cursors]
+		}
+	case 1:
+		if cursors < len(m.watchCfg.Contracts) {
+			return m.watchCfg.Contracts[cursors]
+		}
+	case 2:
+		if cursors < len(m.watchCfg.Wallets) {
+			return m.watchCfg.Wallets[cursors]
+		}
+	}
+	return ""
+}
+
+func (m Model) cfgListLen() int {
+	switch m.cfgFocus {
+	case 0:
+		return len(m.watchCfg.Repos)
+	case 1:
+		return len(m.watchCfg.Contracts)
+	case 2:
+		return len(m.watchCfg.Wallets)
+	}
+	return 0
+}
+
+func (m Model) renderConfigSection(secIdx int, items []string, label string) string {
+	var b strings.Builder
+	isActive := secIdx == m.cfgFocus
+
+	var title string
+	if isActive {
+		title = lipgloss.NewStyle().Bold(true).Foreground(colorAccent).Render("▶ "+label+" ")
+	} else {
+		title = lipgloss.NewStyle().Bold(true).Foreground(colorGray).Render("  "+label+" ")
+	}
+	b.WriteString(title)
+	if isActive {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("(%d item[s])", len(items))))
+	}
+	b.WriteString("\n")
+
+	if len(items) == 0 {
+		b.WriteString(dimStyle.Render("  (none)\n"))
+	} else {
+		for i, item := range items {
+			var prefix string
+			if isActive && i == m.cfgCursors[secIdx] {
+				prefix = lipgloss.NewStyle().Foreground(colorBlue).Bold(true).Render("▶")
+			} else {
+				prefix = " "
+			}
+			num := fmt.Sprintf("%2d", i+1)
+			b.WriteString(fmt.Sprintf(" %s %s  %s\n", prefix, dimStyle.Render(num), item))
+		}
+	}
+
+	return b.String()
 }

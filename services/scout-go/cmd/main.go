@@ -49,9 +49,16 @@ func main() {
 		}
 	}()
 
+	// Load unified watch config (repos + contracts + wallets)
+	watchCfg, err := scout.LoadRepoConfig("")
+	if err != nil {
+		slog.Error("load watch config", "err", err)
+		// continue anyway — GitHub tag can use defaults if empty
+	}
+
 	var wg sync.WaitGroup
 
-	// Mempool watcher (on-chain targets)
+	// Mempool watcher (on-chain targets — everything)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -65,19 +72,46 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		repoCfg, err := scout.LoadRepoConfig("")
-		if err != nil {
-			slog.Error("load repo config", "err", err)
-			return
+		repos := []string{}
+		pollSec := 60
+		if watchCfg != nil {
+			repos = watchCfg.Repos
+			pollSec = watchCfg.PollIntervalSeconds
 		}
 		gh := scout.NewGitHubWatcher(
 			cfg.GitHubToken,
 			out,
-			repoCfg.Repos,
-			time.Duration(repoCfg.PollIntervalSeconds)*time.Second,
+			repos,
+			time.Duration(pollSec)*time.Second,
 		)
 		if err := gh.Run(ctx); err != nil {
 			slog.Error("github watcher", "err", err)
+		}
+	}()
+
+	// Address watcher (specific contracts + wallets)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		contracts := []string{}
+		wallets := []string{}
+		pollSec := 15 // poll blocks faster for watched addresses
+		if watchCfg != nil {
+			contracts = watchCfg.Contracts
+			wallets = watchCfg.Wallets
+			if watchCfg.PollIntervalSeconds > 0 {
+				pollSec = watchCfg.PollIntervalSeconds
+			}
+		}
+		aw := scout.NewAddressWatcher(
+			cfg.SepoliaRPC,
+			out,
+			contracts,
+			wallets,
+			time.Duration(pollSec)*time.Second,
+		)
+		if err := aw.Run(ctx); err != nil {
+			slog.Error("address watcher", "err", err)
 		}
 	}()
 
