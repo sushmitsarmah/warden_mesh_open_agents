@@ -2,30 +2,30 @@
 
 ## Overview
 
-The x402 payment integration enables monetization of vulnerability reports using HTTP 402 Payment Required status codes. This implementation uses **KeeperHub** as the payment gateway for USDC transactions on-chain.
+The x402 payment integration enables monetization of vulnerability reports using HTTP 402 Payment Required status codes. This implementation uses **KeeperHub Workflows** as the payment gateway for USDC transactions on-chain.
 
 ## Architecture
 
 ```
 ┌─────────────┐      ┌──────────────┐      ┌─────────────┐
 │  Disclosure │─────>│ Payment Gate │─────>│  KeeperHub  │
-│  Publisher  │      │   (x402)     │      │     API     │
-└─────────────┘      └──────────────┘      └─────────────┘
-                            │
-                            v
-                    ┌──────────────┐
-                    │ HTTP Handler │
-                    │  (402/200)   │
-                    └──────────────┘
+│  Publisher  │      │   (x402)     │      │  Workflow   │
+└─────────────┘      └──────────────┘      │     API     │
+                             │             └─────────────┘
+                             v
+                     ┌──────────────┐
+                     │ HTTP Handler │
+                     │  (402/200)   │
+                     └──────────────┘
 ```
 
 ### Flow
 
 1. **Report Creation**: Orchestrator generates teaser and full vulnerability reports
-2. **Payment Gate**: Creates a gated report with KeeperHub payment URL
+2. **Payment Gate**: Triggers a KeeperHub workflow that generates a payment URL
 3. **Disclosure**: Publishes teaser with payment URL to AXL mesh
 4. **Access Control**: HTTP handler returns 402 for unpaid, serves full report after payment
-5. **Webhook**: KeeperHub notifies when payment completes, unlocks full report
+5. **Webhook**: KeeperHub notifies when the workflow completes, unlocking the full report
 
 ## Configuration
 
@@ -34,9 +34,11 @@ The x402 payment integration enables monetization of vulnerability reports using
 Add to `.env`:
 
 ```bash
-# KeeperHub - x402 payments
+# KeeperHub - x402 payments (Workflow-based)
 KEEPERHUB_API_KEY=your_api_key_here
-KEEPERHUB_X402_ENDPOINT=https://api.keeperhub.io/v1/payments
+KEEPERHUB_BASE_URL=https://app.keeperhub.com/api
+KEEPERHUB_WORKFLOW_ID=your_workflow_id_here
+KEEPERHUB_WALLET=0x...         # Optional: for on-chain revenue tracking
 REPORT_PRICE_USD=1000
 REPORT_SERVER_BASE_URL=http://localhost:8080
 ```
@@ -44,7 +46,9 @@ REPORT_SERVER_BASE_URL=http://localhost:8080
 ### Configuration Details
 
 - `KEEPERHUB_API_KEY`: Your KeeperHub API key (leave empty for stub mode)
-- `KEEPERHUB_X402_ENDPOINT`: KeeperHub payment API endpoint
+- `KEEPERHUB_BASE_URL`: KeeperHub API base URL (default: `https://app.keeperhub.com/api`)
+- `KEEPERHUB_WORKFLOW_ID`: The ID of your KeeperHub Workflow that generates payment URLs
+- `KEEPERHUB_WALLET`: Optional wallet address for tracking on-chain revenue
 - `REPORT_PRICE_USD`: Default price per vulnerability report (USD)
 - `REPORT_SERVER_BASE_URL`: Base URL for your report server
 
@@ -99,12 +103,14 @@ http.HandleFunc("/reports/"+report.ID, gate.Handler(report.ID))
 http.HandleFunc("/webhook", gate.WebhookHandler())
 ```
 
-**Webhook Payload** (from KeeperHub):
+**Webhook Payload** (from KeeperHub Workflow completion):
 ```json
 {
-  "payment_id": "pay_xyz123",
-  "status": "completed",
-  "tx_hash": "0x1234..."
+  "execution_id": "exec_abc123",
+  "status": "success",
+  "outputs": {
+    "tx_hash": "0x1234..."
+  }
 }
 ```
 
@@ -118,7 +124,7 @@ import (
 )
 
 // Initialize components
-node := axl.NewNode(axlURL, peerKeys)
+node := axl.NewNode(peerKeys)
 gate := x402.NewGate(baseURL)
 publisher := disclosure.NewPublisher(node, gate)
 
@@ -127,8 +133,8 @@ err := publisher.Publish(ctx, exploit, teaserPath, fullPath)
 ```
 
 This automatically:
-1. Creates payment-gated report
-2. Generates KeeperHub payment URL
+1. Triggers a KeeperHub workflow to create a payment-gated report
+2. Generates a payment URL from the workflow result
 3. Publishes disclosure to AXL mesh with payment URL
 
 ## Testing
@@ -180,10 +186,10 @@ When `KEEPERHUB_API_KEY` is not set:
 
 ### Production Mode (With API Key)
 
-When `KEEPERHUB_API_KEY` is configured:
-- Creates real payment URLs via KeeperHub API
+When `KEEPERHUB_API_KEY` and `KEEPERHUB_WORKFLOW_ID` are configured:
+- Triggers a real KeeperHub workflow to generate payment URLs
 - Users pay with USDC on-chain
-- Webhook receives payment confirmations
+- Webhook receives workflow completion with transaction hash
 - Full reports unlock automatically after payment
 
 ## Payment Flow Diagram
@@ -216,20 +222,20 @@ User Request (no payment)
 └───────────────────┘
 ```
 
-## KeeperHub API Integration
+## KeeperHub Workflow API Integration
 
-### Payment Creation Request
+### Workflow Execution Request
 
-```json
-POST https://api.keeperhub.io/v1/payments
+```
+POST https://app.keeperhub.com/api/workflows/{workflow_id}/execute
 Authorization: Bearer YOUR_API_KEY
 Content-Type: application/json
 
 {
-  "amount": 1000.0,
-  "currency": "USDC",
-  "description": "Vulnerability Report: finding-123",
-  "metadata": {
+  "inputs": {
+    "amount": 1000.0,
+    "currency": "USDC",
+    "description": "Vulnerability Report: finding-123",
     "report_id": "6206e6f6b0faf7cf1383834b0f37cd6d",
     "finding_id": "finding-123",
     "type": "vulnerability_report"
@@ -237,14 +243,15 @@ Content-Type: application/json
 }
 ```
 
-### Payment Creation Response
+### Workflow Execution Response
 
 ```json
 {
-  "payment_id": "pay_xyz123",
-  "payment_url": "https://pay.keeperhub.io/xyz123",
-  "amount": 1000.0,
-  "expires_at": "2026-05-03T12:00:00Z"
+  "execution_id": "exec_abc123",
+  "status": "completed",
+  "result": {
+    "payment_url": "https://pay.keeperhub.io/xyz123"
+  }
 }
 ```
 
@@ -281,7 +288,7 @@ Track payment metrics:
 Example logging:
 ```go
 slog.Info("payment confirmed",
-    "payment_id", paymentID,
+    "execution_id", executionID,
     "report_id", payment.ReportID,
     "amount_usd", payment.AmountUSD,
     "tx_hash", txHash,
@@ -291,13 +298,15 @@ slog.Info("payment confirmed",
 ## Next Steps
 
 1. **Set up KeeperHub account** and obtain API key
-2. **Configure webhook endpoint** on a public URL
-3. **Test payment flow** with testnet USDC
-4. **Monitor payments** via KeeperHub dashboard
-5. **Adjust pricing** based on vulnerability severity
+2. **Create a Workflow** in KeeperHub that generates payment URLs
+3. **Set `KEEPERHUB_WORKFLOW_ID`** in your `.env` file
+4. **Configure webhook endpoint** on a public URL
+5. **Test payment flow** with testnet USDC
+6. **Monitor payments** via KeeperHub dashboard
+7. **Adjust pricing** based on vulnerability severity
 
 ## Resources
 
-- KeeperHub Documentation: https://docs.keeperhub.com/api
+- KeeperHub Documentation: https://docs.keeperhub.com
 - HTTP 402 Specification: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/402
 - Test Implementation: `services/orchestrator-go/cmd/test-x402/main.go`

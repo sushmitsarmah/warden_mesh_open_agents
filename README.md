@@ -254,7 +254,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 | Auditor (Aderyn + Slither) | ✅ Complete | Fetches source, runs analyzers, publishes findings |
 | LLM Client (exploit gen) | ✅ Complete | Multi-provider: OpenAI, Anthropic, Ollama, 0G Compute |
 | Foundry Verification | ✅ Complete | Fork tests via `infra/forge-harness/` |
-| x402 Payment Gating | ✅ Complete | Stub mode when `KEEPERHUB_API_KEY` unset |
+| x402 Payment Gating | ✅ Complete | KeeperHub Workflow API; stub mode when `KEEPERHUB_API_KEY` unset |
 | 0G Storage | ✅ Complete | Full reports uploaded; root hash used as iNFT memory pointer |
 | 0G iNFT Recording | ✅ Complete | Records disclosure + storage hash on-chain |
 | Dashboard TUI | ✅ Complete | Process manager, live log streaming, watch list config editor |

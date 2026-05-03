@@ -71,7 +71,7 @@
 | LLM Client | Complete | Auto-detects provider (OpenAI/Anthropic) |
 | Foundry Verification | Complete | Fork test + drain extractor live |
 | Differential Check | Placeholder | Returns `true`; opt-in via `ENABLE_DIFFERENTIAL=true` |
-| x402 Payments | Complete | KeeperHub + stub fallback for dev |
+| x402 Payments | Complete | KeeperHub Workflow API + stub fallback for dev |
 | Dashboard TUI | Complete | Terminal UI, process manager, log viewer, config editor, dual AXL node launcher |
 | 0G iNFT | Complete | Bindings generated, wired into disclosure |
 | Rescue Lane | Disabled | Intentionally disabled for safety |

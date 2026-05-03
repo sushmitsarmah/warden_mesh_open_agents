@@ -17,7 +17,8 @@ import (
 // Gate manages payment-gated content delivery
 type Gate struct {
 	apiKey      string
-	endpoint    string
+	apiBaseURL  string
+	workflowID  string
 	baseURL     string
 	httpClient  *http.Client
 	mu          sync.RWMutex
@@ -47,34 +48,44 @@ type Payment struct {
 	TxHash     string
 }
 
-// KeeperHubPaymentRequest is sent to KeeperHub to create a payment
-type KeeperHubPaymentRequest struct {
-	Amount      float64           `json:"amount"`
-	Currency    string            `json:"currency"`
-	Description string            `json:"description"`
-	Metadata    map[string]string `json:"metadata"`
+// KeeperHubWorkflowRequest is sent to trigger the payment generation workflow
+type KeeperHubWorkflowRequest struct {
+	Inputs map[string]interface{} `json:"inputs"`
 }
 
-// KeeperHubPaymentResponse is returned by KeeperHub
-type KeeperHubPaymentResponse struct {
-	PaymentID  string  `json:"payment_id"`
-	PaymentURL string  `json:"payment_url"`
-	Amount     float64 `json:"amount"`
-	ExpiresAt  string  `json:"expires_at"`
+// KeeperHubWorkflowResponse captures the checkout URL from the workflow result
+type KeeperHubWorkflowResponse struct {
+	ExecutionID string `json:"execution_id"`
+	Status      string `json:"status"`
+	Result      struct {
+		PaymentURL string `json:"payment_url"`
+	} `json:"result"`
+}
+
+// KeeperHubWebhookPayload is the payload KeeperHub sends when the workflow completes
+type KeeperHubWebhookPayload struct {
+	ExecutionID string `json:"execution_id"`
+	Status      string `json:"status"`
+	Outputs     struct {
+		TxHash string `json:"tx_hash"`
+	} `json:"outputs"`
 }
 
 func NewGate(baseURL string) *Gate {
 	apiKey := os.Getenv("KEEPERHUB_API_KEY")
-	endpoint := os.Getenv("KEEPERHUB_X402_ENDPOINT")
 
-	if endpoint == "" {
-		endpoint = "https://api.keeperhub.io/v1/payments" // Default endpoint
+	apiBaseURL := os.Getenv("KEEPERHUB_BASE_URL")
+	if apiBaseURL == "" {
+		apiBaseURL = "https://app.keeperhub.com/api"
 	}
 
+	workflowID := os.Getenv("KEEPERHUB_WORKFLOW_ID")
+
 	return &Gate{
-		apiKey:   apiKey,
-		endpoint: endpoint,
-		baseURL:  baseURL,
+		apiKey:     apiKey,
+		apiBaseURL: apiBaseURL,
+		workflowID: workflowID,
+		baseURL:    baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -130,16 +141,16 @@ func (g *Gate) createPaymentURL(report *GatedReport) (string, error) {
 	return stubURL, nil
 }
 
-// createKeeperHubPayment creates a payment via KeeperHub API
+// createKeeperHubPayment triggers the KeeperHub workflow to generate a payment URL
 func (g *Gate) createKeeperHubPayment(report *GatedReport) (string, error) {
-	req := KeeperHubPaymentRequest{
-		Amount:      report.PriceUSD,
-		Currency:    "USDC",
-		Description: fmt.Sprintf("Vulnerability Report: %s", report.FindingID),
-		Metadata: map[string]string{
-			"report_id":  report.ID,
-			"finding_id": report.FindingID,
-			"type":       "vulnerability_report",
+	req := KeeperHubWorkflowRequest{
+		Inputs: map[string]interface{}{
+			"amount":      report.PriceUSD,
+			"currency":    "USDC",
+			"description": fmt.Sprintf("Vulnerability Report: %s", report.FindingID),
+			"report_id":   report.ID,
+			"finding_id":  report.FindingID,
+			"type":        "vulnerability_report",
 		},
 	}
 
@@ -148,7 +159,9 @@ func (g *Gate) createKeeperHubPayment(report *GatedReport) (string, error) {
 		return "", err
 	}
 
-	httpReq, err := http.NewRequest("POST", g.endpoint, bytes.NewReader(body))
+	url := fmt.Sprintf("%s/workflows/%s/execute", g.apiBaseURL, g.workflowID)
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -168,16 +181,16 @@ func (g *Gate) createKeeperHubPayment(report *GatedReport) (string, error) {
 		return "", fmt.Errorf("KeeperHub API error %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	var khResp KeeperHubPaymentResponse
+	var khResp KeeperHubWorkflowResponse
 	if err := json.Unmarshal(respBody, &khResp); err != nil {
 		return "", fmt.Errorf("failed to parse KeeperHub response: %w", err)
 	}
 
 	// Track the payment
 	payment := &Payment{
-		ID:        khResp.PaymentID,
+		ID:        khResp.ExecutionID,
 		ReportID:  report.ID,
-		AmountUSD: khResp.Amount,
+		AmountUSD: report.PriceUSD,
 		Status:    "pending",
 		CreatedAt: time.Now().UTC(),
 	}
@@ -186,13 +199,13 @@ func (g *Gate) createKeeperHubPayment(report *GatedReport) (string, error) {
 	g.payments[payment.ID] = payment
 	g.mu.Unlock()
 
-	slog.Info("created KeeperHub payment",
-		"payment_id", khResp.PaymentID,
-		"amount", khResp.Amount,
-		"url", khResp.PaymentURL,
+	slog.Info("created KeeperHub workflow payment",
+		"execution_id", khResp.ExecutionID,
+		"status", khResp.Status,
+		"url", khResp.Result.PaymentURL,
 	)
 
-	return khResp.PaymentURL, nil
+	return khResp.Result.PaymentURL, nil
 }
 
 // Handler returns an HTTP handler for accessing a gated report
@@ -278,19 +291,15 @@ func (g *Gate) WebhookHandler() http.HandlerFunc {
 			return
 		}
 
-		var webhook struct {
-			PaymentID string `json:"payment_id"`
-			Status    string `json:"status"`
-			TxHash    string `json:"tx_hash"`
-		}
+		var webhook KeeperHubWebhookPayload
 
 		if err := json.NewDecoder(r.Body).Decode(&webhook); err != nil {
 			http.Error(w, "Invalid webhook payload", http.StatusBadRequest)
 			return
 		}
 
-		if webhook.Status == "completed" || webhook.Status == "paid" {
-			if err := g.MarkPaid(webhook.PaymentID, webhook.TxHash); err != nil {
+		if webhook.Status == "completed" || webhook.Status == "success" {
+			if err := g.MarkPaid(webhook.ExecutionID, webhook.Outputs.TxHash); err != nil {
 				slog.Error("failed to mark payment as paid", "err", err)
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 				return
