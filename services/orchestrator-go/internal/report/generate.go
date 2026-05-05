@@ -19,7 +19,7 @@ func Generate(ctx context.Context, client llm.Client, exploit messages.VerifiedE
 	var buf bytes.Buffer
 	data := map[string]any{
 		"ExploitJSON":     exploit,
-		"Severity":        "critical", // from finding
+		"Severity":        "critical",
 		"ContractAddress": "",
 	}
 	if err := tmpl.Execute(&buf, data); err != nil {

@@ -12,7 +12,7 @@ import (
 func main() {
 	t := messages.Target{
 		ID:           "test-target-001",
-		Kind:         messages.TargetOnchain,
+		Kind:         "onchain",
 		ChainID:      11155111,
 		Address:      "0x1234567890123456789012345678901234567890",
 		DiscoveredAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),

@@ -275,6 +275,7 @@ make test-exploit-gen  # Run LLM exploit generation test
 
 ## Documentation
 
+- `BOUNTIES.md` — Bounty-agnostic architecture & how to add new bounties
 - `PROJECT_STATUS.md` — What's done & what's left
 - `AGENT_IMPLEMENTATION_PLAN.md` — Full phase-by-phase build guide
 - `AXL_INTEGRATION.md` — Mesh setup & topic reference

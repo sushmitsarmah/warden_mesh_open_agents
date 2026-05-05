@@ -34,9 +34,6 @@ func NewPublisher(node *axl.Node, gate *x402.Gate, recorder inft.Recorder, stora
 	}
 }
 
-// Publish uploads the full report to 0G Storage, records on iNFT using the
-// storage root hash as the memory pointer, gates access via x402, and
-// broadcasts the disclosure to the AXL mesh.
 func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploit, teaserPath, fullPath string) error {
 	report, err := p.paymentGate.CreateGatedReport(
 		exploit.FindingID,
@@ -48,11 +45,9 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		return fmt.Errorf("failed to create gated report: %w", err)
 	}
 
-	// Upload full report to 0G Storage and use root hash as memory pointer.
 	storageHash, memoryDelta, err := p.uploadReport(ctx, exploit.FindingID, fullPath)
 	if err != nil {
 		slog.Warn("0G Storage upload failed, using fallback memory pointer", "err", err)
-		// Fallback: derive memoryDelta from the disclosure ID string
 		copy(memoryDelta[:], []byte(exploit.FindingID))
 	}
 
@@ -68,6 +63,8 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 	slog.Info("publishing disclosure",
 		"disclosure_id", d.ID,
 		"exploit_id", exploit.ID,
+		"finding_id", exploit.FindingID,
+		"impact_type", exploit.ImpactType,
 		"x402_url", report.PaymentURL,
 		"storage_hash", storageHash,
 		"price_usd", p.defaultPrice,
@@ -88,7 +85,6 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 	return nil
 }
 
-// PublishTeaser publishes a free teaser with no payment gate.
 func (p *Publisher) PublishTeaser(ctx context.Context, exploit messages.VerifiedExploit, teaserPath string) error {
 	d := messages.Disclosure{
 		ID:          generateID(),
@@ -100,8 +96,6 @@ func (p *Publisher) PublishTeaser(ctx context.Context, exploit messages.Verified
 	return p.node.Publish("disclosure/teaser", b)
 }
 
-// uploadReport stores the full report on 0G Storage and returns the root hash
-// and its raw 32-byte form for use as the iNFT memory delta.
 func (p *Publisher) uploadReport(ctx context.Context, findingID, fullPath string) (string, [32]byte, error) {
 	var memoryDelta [32]byte
 
@@ -119,12 +113,10 @@ func (p *Publisher) uploadReport(ctx context.Context, findingID, fullPath string
 		return "", memoryDelta, fmt.Errorf("0G upload: %w", err)
 	}
 
-	// Decode hex root hash into raw bytes for the iNFT memory delta.
 	hashBytes, err := hex.DecodeString(result.RootHash)
 	if err == nil && len(hashBytes) >= 32 {
 		copy(memoryDelta[:], hashBytes[:32])
 	} else {
-		// Root hash shorter than 32 bytes (e.g., local fallback) — left-pad with zeros.
 		copy(memoryDelta[32-len(hashBytes):], hashBytes)
 	}
 

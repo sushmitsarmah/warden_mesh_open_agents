@@ -80,6 +80,7 @@ pub fn run_slither(source_dir: &Path, target_id: &str) -> Result<Vec<Finding>> {
         findings.push(Finding {
             id: format!("{}-slither-{}", target_id, idx),
             target_id: target_id.to_string(),
+            bounty_type: None,
             category: detector.check.clone(),
             severity,
             tools: vec!["slither".to_string()],

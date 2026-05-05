@@ -15,34 +15,33 @@ import (
 	"github.com/local/swarm/scout/pkg/messages"
 )
 
-// AddressWatcher polls watched contract and wallet addresses for on-chain
-// activity and emits targets when suspicious transactions are observed.
 type AddressWatcher struct {
-	rpcURL       string
-	out          chan<- messages.Target
-	contracts    []string
-	wallets      []string
+	rpcURL     string
+	out       chan<- messages.Target
+	contracts []string
+	wallets   []string
+	bountyType string
 	pollInterval time.Duration
 }
 
-// NewAddressWatcher creates a watcher for specific contract/wallet addresses.
 func NewAddressWatcher(
 	rpcURL string,
 	out chan<- messages.Target,
 	contracts []string,
 	wallets []string,
+	bountyType string,
 	pollInterval time.Duration,
 ) *AddressWatcher {
 	return &AddressWatcher{
-		rpcURL:       rpcURL,
-		out:          out,
-		contracts:    contracts,
-		wallets:      wallets,
+		rpcURL:      rpcURL,
+		out:         out,
+		contracts:   contracts,
+		wallets:     wallets,
+		bountyType:  bountyType,
 		pollInterval: pollInterval,
 	}
 }
 
-// Run polls the chain for transactions involving watched addresses.
 func (w *AddressWatcher) Run(ctx context.Context) error {
 	client, err := ethclient.DialContext(ctx, w.rpcURL)
 	if err != nil {
@@ -50,7 +49,6 @@ func (w *AddressWatcher) Run(ctx context.Context) error {
 	}
 	defer client.Close()
 
-	// Build lookup set for fast address matching.
 	watched := make(map[string]bool)
 	for _, a := range w.contracts {
 		watched[strings.ToLower(a)] = true
@@ -65,14 +63,13 @@ func (w *AddressWatcher) Run(ctx context.Context) error {
 		return nil
 	}
 
-	// Start from the current head — don't replay history.
 	head, err := client.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("get block number: %w", err)
 	}
 	slog.Info("address watcher started", "contracts", len(w.contracts), "wallets", len(w.wallets), "from_block", head)
 
-	seen := make(map[string]bool) // dedupe tx hashes within session
+	seen := make(map[string]bool)
 	ticker := time.NewTicker(w.pollInterval)
 	defer ticker.Stop()
 
@@ -109,25 +106,24 @@ func (w *AddressWatcher) Run(ctx context.Context) error {
 						continue
 					}
 
-					// Build target
 					t := messages.Target{
 						ID:           uuid.NewString(),
-						Kind:         messages.TargetOnchain,
+						BountyType:   w.bountyType,
+						Kind:         "onchain",
 						ChainID:      w.chainID(client, ctx),
 						Address:      matchedAddr,
 						TxHash:       tx.Hash().Hex(),
 						DiscoveredAt: time.Now().UTC(),
-						Priority:     55, // baseline for watched-address hits
+						Priority:     55,
 					}
 
-					// Boost priority for high-value txs
 					if tx.Value() != nil {
 						valEth := new(big.Float).Quo(
 							new(big.Float).SetInt(tx.Value()),
 							new(big.Float).SetInt(big.NewInt(1e18)),
 						)
 						vFloat, _ := valEth.Float64()
-						ethUsd := 3000.0 // same hardcode as mempool
+						ethUsd := 3000.0
 						t.TVLUsd = vFloat * ethUsd
 						if t.TVLUsd >= 50000 {
 							t.Priority = 70 + min(vFloat*ethUsd/1e6, 30)
@@ -153,15 +149,12 @@ func (w *AddressWatcher) Run(ctx context.Context) error {
 func (w *AddressWatcher) chainID(client *ethclient.Client, ctx context.Context) int {
 	id, err := client.ChainID(ctx)
 	if err != nil {
-		return 11155111 // Sepolia default
+		return 11155111
 	}
 	return int(id.Int64())
 }
 
-// matchTx checks if a transaction involves any watched address.
 func (w *AddressWatcher) matchTx(tx *types.Transaction, watched map[string]bool) (bool, string, string) {
-	// Check sender — msg.From is not exposed directly here, but To() gives receiver.
-	// We check To() first.
 	if tx.To() != nil {
 		to := strings.ToLower(tx.To().Hex())
 		if watched[to] {
@@ -169,15 +162,9 @@ func (w *AddressWatcher) matchTx(tx *types.Transaction, watched map[string]bool)
 		}
 	}
 
-	// For contract wallets, we also want to catch *from* the wallet.
-	// ethclient.Transaction doesn't expose From directly without signer.
-	// We'll recover it lazily only when needed for wallet matches.
 	for _, addr := range w.wallets {
 		lower := strings.ToLower(addr)
 		if watched[lower] {
-			// Best-effort: check if To matches wallet (incoming) or we need From (outgoing).
-			// Since From extraction is expensive, skip it here and just flag To matches.
-			// A production scanner would use eth_getTransactionReceipt to get From.
 			if tx.To() != nil && strings.ToLower(tx.To().Hex()) == lower {
 				return true, lower, "wallet"
 			}

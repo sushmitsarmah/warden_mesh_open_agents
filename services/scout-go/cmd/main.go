@@ -58,11 +58,16 @@ func main() {
 
 	var wg sync.WaitGroup
 
+	bountyType := "solidity-evm"
+	if watchCfg != nil && watchCfg.BountyType != "" {
+		bountyType = watchCfg.BountyType
+	}
+
 	// Mempool watcher (on-chain targets — everything)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		w := scout.NewMempoolWatcher(cfg.SepoliaRPC, out)
+		w := scout.NewMempoolWatcher(cfg.SepoliaRPC, out, bountyType)
 		if err := w.Run(ctx); err != nil {
 			slog.Error("mempool watcher", "err", err)
 		}
@@ -83,6 +88,7 @@ func main() {
 			out,
 			repos,
 			time.Duration(pollSec)*time.Second,
+			bountyType,
 		)
 		if err := gh.Run(ctx); err != nil {
 			slog.Error("github watcher", "err", err)
@@ -95,7 +101,7 @@ func main() {
 		defer wg.Done()
 		contracts := []string{}
 		wallets := []string{}
-		pollSec := 15 // poll blocks faster for watched addresses
+		pollSec := 15
 		if watchCfg != nil {
 			contracts = watchCfg.Contracts
 			wallets = watchCfg.Wallets
@@ -108,6 +114,7 @@ func main() {
 			out,
 			contracts,
 			wallets,
+			bountyType,
 			time.Duration(pollSec)*time.Second,
 		)
 		if err := aw.Run(ctx); err != nil {
