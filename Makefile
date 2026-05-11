@@ -1,5 +1,6 @@
 .PHONY: build test clean scout auditor orchestrator contracts \
-  roundtrip test-analyzers test-exploit-gen setup check-tools dashboard
+  roundtrip test-analyzers test-exploit-gen setup check-tools dashboard \
+  build-vulnerable-vault run-cloak run-audit-dashboard
 
 # ── Self-healing setup ──────────────────────────────────────────────
 setup: check-tools
@@ -41,6 +42,19 @@ test: check-tools
 
 roundtrip:
 	bash infra/scripts/schema-roundtrip.sh
+
+# ── Cloak private payout sidecar ────────────────────────────────────
+run-cloak:
+	cd services/cloak-ts && yarn install --frozen-lockfile && yarn dev
+
+run-audit-dashboard:
+	cd services/cloak-ts/audit-dashboard && yarn install --frozen-lockfile && yarn dev
+
+# ── Solana test fixture ──────────────────────────────────────────────
+# Builds the deliberately-vulnerable Anchor program used to exercise
+# the Solana analyzer pipeline.  Requires: Rust + anchor-cli + solana-cli.
+build-vulnerable-vault:
+	cd test-fixtures/solana/vulnerable-vault && anchor build
 
 # ── Component tests ─────────────────────────────────────────────────
 test-analyzers:

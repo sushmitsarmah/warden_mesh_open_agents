@@ -51,19 +51,21 @@ contract SwarmINFT is IERC7857 {
 
     // REQUIRED: EIP-7857 State Update Function
     function updateMemory(uint256 tokenId, bytes32 memoryDelta) external override onlyOrchestrator {
-        state[tokenId].memPointer = memoryDelta;
-        emit MemoryUpdated(tokenId, memoryDelta);
+        _updateMemory(tokenId, memoryDelta);
     }
 
     function recordDisclosure(uint256 tokenId, uint256 bountyUsd, bytes32 memoryDelta) external onlyOrchestrator {
         SwarmState storage s = state[tokenId];
         s.disclosuresCount += 1;
         s.cumulativeBountyUsd += bountyUsd;
-        
-        // Use the standardized function to update memory
-        this.updateMemory(tokenId, memoryDelta);
-        
+        _updateMemory(tokenId, memoryDelta);
         emit DisclosureRecorded(tokenId, bountyUsd, memoryDelta);
+    }
+
+    // Internal memory update — avoids external self-call that resets msg.sender
+    function _updateMemory(uint256 tokenId, bytes32 memoryDelta) internal {
+        state[tokenId].memPointer = memoryDelta;
+        emit MemoryUpdated(tokenId, memoryDelta);
     }
 
     function setAuthorizedProtocol(address protocol, bool ok) external onlyMultisig {

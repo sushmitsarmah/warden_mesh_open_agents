@@ -25,7 +25,11 @@ type WatchConfig struct {
 	Repos               []string `yaml:"repos"`
 	Contracts           []string `yaml:"contracts"`
 	Wallets             []string `yaml:"wallets"`
+	BountyType          string   `yaml:"bounty_type"`
 	PollIntervalSeconds int      `yaml:"poll_interval_seconds"`
+	// Solana-specific repo list — emits targets with SolanaBountyType set.
+	SolanaRepos      []string `yaml:"solana_repos"`
+	SolanaBountyType string   `yaml:"solana_bounty_type"`
 }
 
 // GitHubWatcher polls configured repositories for new commits and emits targets.
@@ -35,6 +39,7 @@ type GitHubWatcher struct {
 	repos        []string
 	pollInterval time.Duration
 	stateFile    string
+	bountyType   string
 }
 
 // LoadRepoConfig reads the YAML watch config from path (falls back to defaultConfig).
@@ -58,7 +63,7 @@ func LoadRepoConfig(path string) (*WatchConfig, error) {
 
 // NewGitHubWatcher creates a watcher that polls repos for new commits.
 // token may be empty for unauthenticated requests (lower rate limits).
-func NewGitHubWatcher(token string, out chan<- messages.Target, repos []string, pollInterval time.Duration) *GitHubWatcher {
+func NewGitHubWatcher(token string, out chan<- messages.Target, repos []string, pollInterval time.Duration, bountyType string) *GitHubWatcher {
 	client := github.NewClient(nil)
 	if token != "" {
 		client = client.WithAuthToken(token)
@@ -69,6 +74,7 @@ func NewGitHubWatcher(token string, out chan<- messages.Target, repos []string, 
 		repos:        repos,
 		pollInterval: pollInterval,
 		stateFile:    stateFile,
+		bountyType:   bountyType,
 	}
 }
 
@@ -144,16 +150,17 @@ func (w *GitHubWatcher) Run(ctx context.Context) error {
 						msg = *c.Commit.Message
 					}
 
-					t := messages.Target{
-						ID:           uuid.NewString(),
-						Kind:         messages.TargetGitHub,
-						Repo:         repo,
-						CommitSha:    sha,
-						SourceURL:    fmt.Sprintf("https://github.com/%s/commit/%s", repo, sha),
-						DiscoveredAt: time.Now().UTC(),
-						Priority:     Score(messages.Target{Kind: messages.TargetGitHub, DiscoveredAt: time.Now().UTC()}),
-						TVLUsd:       0, // GitHub commits don't have TVL
-					}
+				t := messages.Target{
+					ID:           uuid.NewString(),
+					BountyType:   w.bountyType,
+					Kind:         "github",
+					Repo:         repo,
+					CommitSha:    sha,
+					SourceURL:    fmt.Sprintf("https://github.com/%s/commit/%s", repo, sha),
+					DiscoveredAt: time.Now().UTC(),
+					Priority:     Score(messages.Target{Kind: "github", DiscoveredAt: time.Now().UTC()}),
+					TVLUsd:       0,
+				}
 					w.out <- t
 					slog.Info("github target emitted",
 						"repo", repo,

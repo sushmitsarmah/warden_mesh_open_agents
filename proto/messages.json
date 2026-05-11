@@ -6,9 +6,10 @@
       "required": ["id", "kind", "discoveredAt", "priority"],
       "properties": {
         "id": { "type": "string", "description": "uuid v4" },
-        "kind": { "enum": ["onchain", "github", "immunefi"] },
+        "bountyType": { "type": "string", "description": "solidity-evm | firedancer | move-aptos | etc" },
+        "kind": { "type": "string", "description": "onchain | github | immunefi | solana-gossip | etc" },
         "chainId": { "type": "integer" },
-        "address": { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
+        "address": { "type": "string" },
         "repo": { "type": "string" },
         "commitSha": { "type": "string" },
         "sourceUrl": { "type": "string" },
@@ -23,11 +24,12 @@
       "properties": {
         "id": { "type": "string" },
         "targetId": { "type": "string" },
-        "category": { "type": "string", "description": "e.g. reentrancy, unchecked-call" },
+        "bountyType": { "type": "string" },
+        "category": { "type": "string" },
         "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
         "tools": {
           "type": "array",
-          "items": { "enum": ["aderyn", "slither"] },
+          "items": { "type": "string" },
           "minItems": 1
         },
         "location": {
@@ -43,14 +45,16 @@
     },
     "VerifiedExploit": {
       "type": "object",
-      "required": ["id", "findingId", "forgePath", "drainAmountUsd", "verifiedAt"],
+      "required": ["id", "findingId", "pocPath", "impactType", "attackerModel", "verifiedAt"],
       "properties": {
         "id": { "type": "string" },
         "findingId": { "type": "string" },
-        "forgePath": { "type": "string" },
-        "drainAmountUsd": { "type": "number" },
-        "blockNumber": { "type": "integer" },
-        "differentialPassed": { "type": "boolean" },
+        "pocPath": { "type": "string", "description": "path to generated PoC file" },
+        "impactType": { "type": "string", "description": "crash | bank-hash-mismatch | sandbox-escape | liveness-failure | invalid-block | drain" },
+        "validatedAgainstConfig": { "type": "boolean" },
+        "attackerModel": { "type": "string", "description": "leader | staked_validator | gossip_participant | remote | etc" },
+        "modifiedValidator": { "type": "boolean" },
+        "justification": { "type": "string" },
         "verifiedAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -63,6 +67,7 @@
         "lane": { "enum": ["bounty", "rescue"] },
         "x402Url": { "type": "string" },
         "txHash": { "type": "string" },
+        "storageHash": { "type": "string" },
         "publishedAt": { "type": "string", "format": "date-time" }
       }
     }

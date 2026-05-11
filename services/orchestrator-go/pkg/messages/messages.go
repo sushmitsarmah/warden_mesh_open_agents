@@ -2,25 +2,18 @@ package messages
 
 import "time"
 
-type TargetKind string
-
-const (
-	TargetOnchain  TargetKind = "onchain"
-	TargetGitHub   TargetKind = "github"
-	TargetImmunefi TargetKind = "immunefi"
-)
-
 type Target struct {
-	ID           string     `json:"id"`
-	Kind         TargetKind `json:"kind"`
-	ChainID      int        `json:"chainId,omitempty"`
-	Address      string     `json:"address,omitempty"`
-	Repo         string     `json:"repo,omitempty"`
-	CommitSha    string     `json:"commitSha,omitempty"`
-	SourceURL    string     `json:"sourceUrl,omitempty"`
-	DiscoveredAt time.Time  `json:"discoveredAt"`
-	Priority     float64    `json:"priority"`
-	TVLUsd       float64    `json:"tvlUsd,omitempty"`
+	ID           string    `json:"id"`
+	BountyType   string    `json:"bountyType,omitempty"`
+	Kind         string    `json:"kind"`
+	ChainID      int       `json:"chainId,omitempty"`
+	Address      string    `json:"address,omitempty"`
+	Repo         string    `json:"repo,omitempty"`
+	CommitSha    string    `json:"commitSha,omitempty"`
+	SourceURL    string    `json:"sourceUrl,omitempty"`
+	DiscoveredAt time.Time `json:"discoveredAt"`
+	Priority     float64   `json:"priority"`
+	TVLUsd       float64   `json:"tvlUsd,omitempty"`
 }
 
 type Severity string
@@ -36,6 +29,7 @@ const (
 type Finding struct {
 	ID          string   `json:"id"`
 	TargetID    string   `json:"targetId"`
+	BountyType  string   `json:"bountyType,omitempty"`
 	Category    string   `json:"category"`
 	Severity    Severity `json:"severity"`
 	Tools       []string `json:"tools"`
@@ -50,13 +44,15 @@ type Location struct {
 }
 
 type VerifiedExploit struct {
-	ID                 string    `json:"id"`
-	FindingID          string    `json:"findingId"`
-	ForgePath          string    `json:"forgePath"`
-	DrainAmountUsd     float64   `json:"drainAmountUsd"`
-	BlockNumber        int64     `json:"blockNumber"`
-	DifferentialPassed bool      `json:"differentialPassed"`
-	VerifiedAt         time.Time `json:"verifiedAt"`
+	ID                    string    `json:"id"`
+	FindingID             string    `json:"findingId"`
+	PoCPath               string    `json:"pocPath"`
+	ImpactType            string    `json:"impactType"`
+	ValidatedAgainstConfig bool     `json:"validatedAgainstConfig"`
+	AttackerModel         string    `json:"attackerModel"`
+	ModifiedValidator     bool      `json:"modifiedValidator"`
+	Justification         string    `json:"justification,omitempty"`
+	VerifiedAt            time.Time `json:"verifiedAt"`
 }
 
 type Disclosure struct {
@@ -65,6 +61,12 @@ type Disclosure struct {
 	Lane        string    `json:"lane"`
 	X402URL     string    `json:"x402Url,omitempty"`
 	TxHash      string    `json:"txHash,omitempty"`
-	StorageHash string    `json:"storageHash,omitempty"` // 0G Storage root hash of full report
+	StorageHash string    `json:"storageHash,omitempty"`
 	PublishedAt time.Time `json:"publishedAt"`
+
+	// Cloak private payout fields — set when a shielded bounty payment was made.
+	// CloakTxSignature is the Solana tx ID of the shielded disbursement.
+	// CloakViewingKeyID is the key the protocol finance team uses to audit.
+	CloakTxSignature  string `json:"cloakTxSignature,omitempty"`
+	CloakViewingKeyID string `json:"cloakViewingKeyId,omitempty"`
 }

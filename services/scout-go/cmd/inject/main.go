@@ -25,7 +25,7 @@ func main() {
 	node, _ := axl.NewNode(nil)
 	t := messages.Target{
 		ID:           uuid.NewString(),
-		Kind:         messages.TargetOnchain,
+		Kind:         "onchain",
 		ChainID:      chain,
 		Address:      addr,
 		DiscoveredAt: time.Now().UTC(),

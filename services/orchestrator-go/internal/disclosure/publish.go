@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/local/swarm/orchestrator/internal/cloak"
 	"github.com/local/swarm/orchestrator/internal/inft"
 	"github.com/local/swarm/orchestrator/internal/storage"
 	"github.com/local/swarm/orchestrator/internal/x402"
@@ -17,26 +18,36 @@ import (
 )
 
 type Publisher struct {
-	node          *axl.Node
-	paymentGate   *x402.Gate
-	inftRecorder  inft.Recorder
-	storageClient *storage.LightClient
-	defaultPrice  float64
+	node            *axl.Node
+	paymentGate     *x402.Gate
+	inftRecorder    inft.Recorder
+	storageClient   *storage.LightClient
+	cloakClient     *cloak.Client
+	defaultPrice    float64
+	bountyAmountUSDC int64
 }
 
-func NewPublisher(node *axl.Node, gate *x402.Gate, recorder inft.Recorder, storageClient *storage.LightClient) *Publisher {
+func NewPublisher(
+	node *axl.Node,
+	gate *x402.Gate,
+	recorder inft.Recorder,
+	storageClient *storage.LightClient,
+) *Publisher {
 	return &Publisher{
-		node:          node,
-		paymentGate:   gate,
-		inftRecorder:  recorder,
-		storageClient: storageClient,
-		defaultPrice:  1000.0,
+		node:             node,
+		paymentGate:      gate,
+		inftRecorder:     recorder,
+		storageClient:    storageClient,
+		cloakClient:      cloak.NewClient(),
+		defaultPrice:     1000.0,
+		bountyAmountUSDC: 5_000_000, // 5 USDC default; overridden via SetBountyAmount
 	}
 }
 
-// Publish uploads the full report to 0G Storage, records on iNFT using the
-// storage root hash as the memory pointer, gates access via x402, and
-// broadcasts the disclosure to the AXL mesh.
+func (p *Publisher) SetBountyAmount(amountUSDC int64) {
+	p.bountyAmountUSDC = amountUSDC
+}
+
 func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploit, teaserPath, fullPath string) error {
 	report, err := p.paymentGate.CreateGatedReport(
 		exploit.FindingID,
@@ -48,11 +59,9 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		return fmt.Errorf("failed to create gated report: %w", err)
 	}
 
-	// Upload full report to 0G Storage and use root hash as memory pointer.
 	storageHash, memoryDelta, err := p.uploadReport(ctx, exploit.FindingID, fullPath)
 	if err != nil {
 		slog.Warn("0G Storage upload failed, using fallback memory pointer", "err", err)
-		// Fallback: derive memoryDelta from the disclosure ID string
 		copy(memoryDelta[:], []byte(exploit.FindingID))
 	}
 
@@ -65,12 +74,62 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		PublishedAt: time.Now().UTC(),
 	}
 
+	// ── Cloak private payout ───────────────────────────────────────────────
+	// If the Cloak sidecar is running, disburse the bounty reward as a shielded
+	// batch payment and attach the viewing key ID to the disclosure record so
+	// the protocol's finance team can audit via the Cloak Audit Dashboard.
+	if p.cloakClient.IsAvailable(ctx) {
+		stealthAddr, stealthErr := p.cloakClient.GenerateStealthAddress(ctx)
+		if stealthErr != nil {
+			slog.Warn("cloak: could not generate stealth address, skipping payout", "err", stealthErr)
+		} else {
+			payoutReq := cloak.PayoutRequest{
+				FindingID: exploit.FindingID,
+				Recipients: []cloak.PayoutRecipient{
+					{
+						StealthAddress: stealthAddr,
+						AmountUsdc:     p.bountyAmountUSDC,
+						Label:          fmt.Sprintf("Bounty for finding %s", exploit.FindingID),
+					},
+				},
+				Mint:               cloak.MintUSDC,
+				GenerateViewingKey: true,
+				ViewingKeyLabel:    fmt.Sprintf("Audit — finding %s", exploit.FindingID),
+				ViewingKeyScope:    cloak.ScopeFull,
+			}
+
+			result, payErr := p.cloakClient.PayBounty(ctx, payoutReq)
+			if payErr != nil {
+				slog.Error("cloak payout failed", "finding_id", exploit.FindingID, "err", payErr)
+			} else if result != nil {
+				d.CloakTxSignature = result.TxSignature
+				if result.ViewingKey != nil {
+					d.CloakViewingKeyID = result.ViewingKey.ID
+				}
+				slog.Info("cloak bounty disbursed",
+					"finding_id", exploit.FindingID,
+					"tx", result.TxSignature,
+					"amount_usdc", result.TotalAmountUSDC,
+					"viewing_key_id", d.CloakViewingKeyID,
+				)
+			}
+		}
+	} else {
+		slog.Info("cloak service not available — skipping private payout",
+			"service_url", os.Getenv("CLOAK_SERVICE_URL"))
+	}
+	// ── end Cloak ──────────────────────────────────────────────────────────
+
 	slog.Info("publishing disclosure",
 		"disclosure_id", d.ID,
 		"exploit_id", exploit.ID,
+		"finding_id", exploit.FindingID,
+		"impact_type", exploit.ImpactType,
 		"x402_url", report.PaymentURL,
 		"storage_hash", storageHash,
 		"price_usd", p.defaultPrice,
+		"cloak_tx", d.CloakTxSignature,
+		"cloak_viewing_key", d.CloakViewingKeyID,
 	)
 
 	if p.inftRecorder != nil {
@@ -88,7 +147,6 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 	return nil
 }
 
-// PublishTeaser publishes a free teaser with no payment gate.
 func (p *Publisher) PublishTeaser(ctx context.Context, exploit messages.VerifiedExploit, teaserPath string) error {
 	d := messages.Disclosure{
 		ID:          generateID(),
@@ -100,8 +158,6 @@ func (p *Publisher) PublishTeaser(ctx context.Context, exploit messages.Verified
 	return p.node.Publish("disclosure/teaser", b)
 }
 
-// uploadReport stores the full report on 0G Storage and returns the root hash
-// and its raw 32-byte form for use as the iNFT memory delta.
 func (p *Publisher) uploadReport(ctx context.Context, findingID, fullPath string) (string, [32]byte, error) {
 	var memoryDelta [32]byte
 
@@ -119,12 +175,10 @@ func (p *Publisher) uploadReport(ctx context.Context, findingID, fullPath string
 		return "", memoryDelta, fmt.Errorf("0G upload: %w", err)
 	}
 
-	// Decode hex root hash into raw bytes for the iNFT memory delta.
 	hashBytes, err := hex.DecodeString(result.RootHash)
 	if err == nil && len(hashBytes) >= 32 {
 		copy(memoryDelta[:], hashBytes[:32])
 	} else {
-		// Root hash shorter than 32 bytes (e.g., local fallback) — left-pad with zeros.
 		copy(memoryDelta[32-len(hashBytes):], hashBytes)
 	}
 

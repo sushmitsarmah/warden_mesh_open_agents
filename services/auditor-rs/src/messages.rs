@@ -2,13 +2,11 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "lowercase")]
-pub enum TargetKind { Onchain, Github, Immunefi }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Target {
     pub id: String,
-    pub kind: TargetKind,
+    #[serde(rename = "bountyType", skip_serializing_if = "Option::is_none")]
+    pub bounty_type: Option<String>,
+    pub kind: String,
     #[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
     pub chain_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,6 +42,8 @@ pub struct Finding {
     pub id: String,
     #[serde(rename = "targetId")]
     pub target_id: String,
+    #[serde(rename = "bountyType", skip_serializing_if = "Option::is_none")]
+    pub bounty_type: Option<String>,
     pub category: String,
     pub severity: Severity,
     pub tools: Vec<String>,

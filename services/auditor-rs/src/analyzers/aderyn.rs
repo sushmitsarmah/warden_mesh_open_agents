@@ -109,6 +109,7 @@ fn parse_aderyn_markdown(markdown: &str, target_id: &str) -> Vec<Finding> {
             findings.push(Finding {
                 id: format!("{}-aderyn-{}", target_id, idx),
                 target_id: target_id.to_string(),
+                bounty_type: None,
                 category,
                 severity,
                 tools: vec!["aderyn".to_string()],

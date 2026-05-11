@@ -9,9 +9,8 @@ import (
 )
 
 func TestScore(t *testing.T) {
-	// onchain with high TVL
 	onchainHigh := messages.Target{
-		Kind:         messages.TargetOnchain,
+		Kind:         "onchain",
 		DiscoveredAt: time.Now().UTC(),
 		TVLUsd:       1e9,
 	}
@@ -19,9 +18,8 @@ func TestScore(t *testing.T) {
 	assert.GreaterOrEqual(t, score, 60.0)
 	assert.LessOrEqual(t, score, 100.0)
 
-	// github with no TVL
 	github := messages.Target{
-		Kind:         messages.TargetGitHub,
+		Kind:         "github",
 		DiscoveredAt: time.Now().UTC().Add(-2 * time.Hour),
 		TVLUsd:       0,
 	}
@@ -29,9 +27,8 @@ func TestScore(t *testing.T) {
 	assert.GreaterOrEqual(t, score, 0.0)
 	assert.LessOrEqual(t, score, 100.0)
 
-	// immunefi
 	immunefi := messages.Target{
-		Kind:         messages.TargetImmunefi,
+		Kind:         "immunefi",
 		DiscoveredAt: time.Now().UTC().Add(-48 * time.Hour),
 		TVLUsd:       1e7,
 	}

@@ -39,7 +39,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 				slog.Error("unmarshal finding", "err", err)
 				continue
 			}
-			slog.Info("finding received", "id", f.ID, "category", f.Category, "severity", f.Severity)
+			slog.Info("finding received", "id", f.ID, "bounty_type", f.BountyType, "category", f.Category, "severity", f.Severity)
 			go o.process(ctx, f)
 		}
 	}
@@ -58,7 +58,13 @@ func (o *Orchestrator) process(ctx context.Context, f messages.Finding) {
 	verified, err := verify.TripleVerify(ctx, o.llmClient, o.node, exploitPath, f, f.Location.File)
 	if err != nil {
 		slog.Warn("verification failed, continuing with unverified finding", "id", f.ID, "err", err)
-		verified = messages.VerifiedExploit{FindingID: f.ID, ForgePath: exploitPath}
+		verified = messages.VerifiedExploit{
+			ID:        "unverified-" + f.ID,
+			FindingID: f.ID,
+			PoCPath:   exploitPath,
+			AttackerModel: "unknown",
+			ImpactType: "unknown",
+		}
 	}
 
 	teaserPath, fullPath, err := report.Generate(ctx, o.llmClient, verified)

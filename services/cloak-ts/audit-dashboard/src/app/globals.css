@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 229, 231, 235;
+  --background: 3, 7, 18;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background));
+}
+
+.badge-full {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-900 text-emerald-300 border border-emerald-700;
+}
+.badge-amounts {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-sky-900 text-sky-300 border border-sky-700;
+}
+.badge-time {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-900 text-amber-300 border border-amber-700;
+}

@@ -48,7 +48,7 @@ func main() {
 func injectTarget() {
 	t := messages.Target{
 		ID:           uuid.NewString(),
-		Kind:         messages.TargetOnchain,
+		Kind:         "onchain",
 		ChainID:      1,
 		Address:      "0x" + randomHex(40),
 		DiscoveredAt: time.Now().UTC(),

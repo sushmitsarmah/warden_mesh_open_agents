@@ -8,7 +8,6 @@ import (
 )
 
 func Score(t messages.Target) float64 {
-	// 0.5 * tvl_score + 0.3 * novelty_score + 0.2 * kind_score
 	tvlScore := tvlScore(t.TVLUsd)
 	noveltyScore := noveltyScore(t.DiscoveredAt)
 	kindScore := kindScore(t.Kind)
@@ -43,13 +42,13 @@ func noveltyScore(discoveredAt time.Time) float64 {
 	}
 }
 
-func kindScore(kind messages.TargetKind) float64 {
+func kindScore(kind string) float64 {
 	switch kind {
-	case messages.TargetOnchain:
+	case "onchain":
 		return 80
-	case messages.TargetGitHub:
+	case "github":
 		return 60
-	case messages.TargetImmunefi:
+	case "immunefi":
 		return 70
 	default:
 		return 50
