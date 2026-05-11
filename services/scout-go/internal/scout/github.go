@@ -27,6 +27,9 @@ type WatchConfig struct {
 	Wallets             []string `yaml:"wallets"`
 	BountyType          string   `yaml:"bounty_type"`
 	PollIntervalSeconds int      `yaml:"poll_interval_seconds"`
+	// Solana-specific repo list — emits targets with SolanaBountyType set.
+	SolanaRepos      []string `yaml:"solana_repos"`
+	SolanaBountyType string   `yaml:"solana_bounty_type"`
 }
 
 // GitHubWatcher polls configured repositories for new commits and emits targets.

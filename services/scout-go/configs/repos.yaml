@@ -1,4 +1,5 @@
 repos:
+    # EVM / Solidity
     - aave/aave-v3-core
     - Uniswap/v4-core
     - compound-finance/compound-protocol
@@ -6,10 +7,32 @@ repos:
     - curvefi/curve-contract
     - dydxprotocol/v4-chain
     - gmx-io/gmx-synthetics
+    # Solana validator (C)
     - firedancer-io/firedancer
+    # Solana programs (Rust / Anchor)
+    - coral-xyz/anchor
+    - solana-labs/solana-program-library
+    - marinade-finance/liquid-staking-program
+    - raydium-io/raydium-amm
+    - orca-so/whirlpools
+    - jito-foundation/jito-programs
+    - drift-labs/protocol-v2
+    - metaplex-foundation/mpl-token-metadata
 contracts:
     - 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 wallets:
     - 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 bounty_type: ""
 poll_interval_seconds: 60
+
+# Solana-specific repos — watch separately with bounty_type: solana-program
+solana_repos:
+    - coral-xyz/anchor
+    - solana-labs/solana-program-library
+    - marinade-finance/liquid-staking-program
+    - raydium-io/raydium-amm
+    - orca-so/whirlpools
+    - jito-foundation/jito-programs
+    - drift-labs/protocol-v2
+    - metaplex-foundation/mpl-token-metadata
+solana_bounty_type: "solana-program"

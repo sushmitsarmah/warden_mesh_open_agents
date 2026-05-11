@@ -31,9 +31,38 @@ func TripleVerify(ctx context.Context, client llm.Client, node *axl.Node, exploi
 	switch bountyType {
 	case "firedancer":
 		return verifyFiredancer(ctx, exploitPath, finding)
+	case "solana-program":
+		return verifySolanaProgram(ctx, exploitPath, finding, node)
 	default:
 		return verifySolidityEVM(ctx, client, node, exploitPath, finding, sourcePath)
 	}
+}
+
+func verifySolanaProgram(ctx context.Context, exploitPath string, finding messages.Finding, node *axl.Node) (messages.VerifiedExploit, error) {
+	slog.Info("verifying solana program", "finding_id", finding.ID, "poc", exploitPath)
+
+	res, err := VerifyWithSolanaValidator(ctx, exploitPath, finding)
+	if err != nil {
+		return messages.VerifiedExploit{}, fmt.Errorf("solana validator verification failed: %w", err)
+	}
+	if !res.Passed {
+		return messages.VerifiedExploit{}, fmt.Errorf("solana PoC did not demonstrate impact (output: %s)", res.ErrorOutput)
+	}
+
+	result := messages.VerifiedExploit{
+		ID:            generateID(),
+		FindingID:     finding.ID,
+		PoCPath:       exploitPath,
+		ImpactType:    res.ImpactType,
+		AttackerModel: "remote",
+		VerifiedAt:    time.Now().UTC(),
+	}
+
+	b, _ := json.Marshal(result)
+	node.Publish("exploit/verified", b)
+
+	slog.Info("solana verification passed", "id", result.ID, "impact", result.ImpactType)
+	return result, nil
 }
 
 func verifyFiredancer(ctx context.Context, exploitPath string, finding messages.Finding) (messages.VerifiedExploit, error) {

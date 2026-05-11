@@ -122,5 +122,49 @@ func main() {
 		}
 	}()
 
+	// Forta alert watcher — real-time on-chain threat intelligence
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		contracts := []string{}
+		if watchCfg != nil {
+			contracts = watchCfg.Contracts
+		}
+		fw := scout.NewFortaWatcher(
+			cfg.FortaAPIKey,
+			out,
+			contracts,
+			5*time.Minute,
+			bountyType,
+		)
+		slog.Info("forta watcher started", "contracts", len(contracts))
+		if err := fw.Run(ctx); err != nil {
+			slog.Error("forta watcher", "err", err)
+		}
+	}()
+
+	// Solana program GitHub watcher — separate bounty type
+	if watchCfg != nil && len(watchCfg.SolanaRepos) > 0 {
+		solanaBountyType := watchCfg.SolanaBountyType
+		if solanaBountyType == "" {
+			solanaBountyType = "solana-program"
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			gh := scout.NewGitHubWatcher(
+				cfg.GitHubToken,
+				out,
+				watchCfg.SolanaRepos,
+				time.Duration(watchCfg.PollIntervalSeconds)*time.Second,
+				solanaBountyType,
+			)
+			slog.Info("solana program watcher started", "repos", len(watchCfg.SolanaRepos))
+			if err := gh.Run(ctx); err != nil {
+				slog.Error("solana github watcher", "err", err)
+			}
+		}()
+	}
+
 	wg.Wait()
 }

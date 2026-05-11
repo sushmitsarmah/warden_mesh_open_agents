@@ -1,0 +1,20 @@
+[package]
+name = "vulnerable-vault"
+version = "0.1.0"
+description = "Deliberately vulnerable Solana vault — for security scanner testing only"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "vulnerable_vault"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30.1"
+anchor-spl = "0.30.1"

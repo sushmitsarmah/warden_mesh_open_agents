@@ -26,6 +26,12 @@ async fn main() -> anyhow::Result<()> {
                 let branch = target.commit_sha.clone().unwrap_or_else(|| "v1.0".to_string());
                 run_firedancer_analysis(&work_dir, &repo, &branch, &target.id).await
             }
+            "solana-program" => {
+                // Rust-based Solana programs: clone repo and run Solana analyzers
+                let repo = target.repo.clone().unwrap_or_default();
+                let branch = target.commit_sha.clone().unwrap_or_else(|| "main".to_string());
+                run_solana_analysis(&work_dir, &repo, &branch, &target.id).await
+            }
             _ => {
                 // Default: EVM / Solidity analysis
                 let chain_id = match target.chain_id {
@@ -67,7 +73,27 @@ async fn main() -> anyhow::Result<()> {
                         tracing::warn!("slither failed for {}: {}", tid, e);
                         vec![]
                     });
-                    analyzers::merge::merge(a, s)
+                    let mut findings = analyzers::merge::merge(a, s);
+
+                    // Timelock detector — privileged functions without timelock
+                    match analyzers::timelock::run(&dir, &tid) {
+                        Ok(f) => findings.extend(f),
+                        Err(e) => tracing::warn!("timelock detector failed: {}", e),
+                    }
+
+                    // Oracle staleness checker — Chainlink/TWAP misuse
+                    match analyzers::oracle_check::run(&dir, &tid) {
+                        Ok(f) => findings.extend(f),
+                        Err(e) => tracing::warn!("oracle check failed: {}", e),
+                    }
+
+                    // Bridge dependency scanner — 7 protocols, validation checks
+                    match analyzers::bridge_deps::run(&dir, &tid) {
+                        Ok(f) => findings.extend(f),
+                        Err(e) => tracing::warn!("bridge scanner failed: {}", e),
+                    }
+
+                    findings
                 })
                 .await
                 .unwrap_or_default()
@@ -145,6 +171,110 @@ async fn run_firedancer_analysis(
         analyzers::known_issues_checker::filter(&mut findings);
 
         tracing::info!("firedancer analysis complete: {} findings", findings.len());
+        findings
+    })
+    .await
+    .unwrap_or_default()
+}
+
+async fn run_solana_analysis(
+    work_dir: &PathBuf,
+    repo: &str,
+    branch: &str,
+    target_id: &str,
+) -> Vec<auditor::messages::Finding> {
+    tracing::info!("running solana analysis: repo={}, branch={}", repo, branch);
+
+    if repo.is_empty() {
+        tracing::warn!("solana analysis: no repo specified for target {}", target_id);
+        return vec![];
+    }
+
+    let dir = work_dir.clone();
+    let tid = target_id.to_string();
+    let r = repo.to_string();
+    let b = branch.to_string();
+
+    task::spawn_blocking(move || {
+        let clone_result = std::process::Command::new("git")
+            .args(&[
+                "clone",
+                "--branch", &b,
+                "--depth", "1",
+                &format!("https://github.com/{}.git", r),
+                dir.to_str().unwrap_or("/tmp/solana-program"),
+            ])
+            .output();
+
+        let source_dir = match clone_result {
+            Ok(out) if out.status.success() => dir.clone(),
+            Ok(out) => {
+                tracing::warn!("git clone failed: {}", String::from_utf8_lossy(&out.stderr));
+                PathBuf::from("/tmp/solana-program")
+            }
+            Err(e) => {
+                tracing::warn!("git clone error: {}", e);
+                PathBuf::from("/tmp/solana-program")
+            }
+        };
+
+        let mut findings = Vec::new();
+
+        // 1. Dependency vulnerability scan (RustSec advisory database)
+        match analyzers::cargo_audit::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("cargo audit failed: {}", e),
+        }
+
+        // 2. License, duplicate-dep, and advisory policy checks
+        match analyzers::cargo_deny::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("cargo deny failed: {}", e),
+        }
+
+        // 3. Unsafe code detection in crate and dependencies
+        match analyzers::cargo_geiger::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("cargo geiger failed: {}", e),
+        }
+
+        // 4. Solana-specific Clippy lints (arithmetic, unwrap, indexing)
+        match analyzers::clippy_solana::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("clippy (solana) failed: {}", e),
+        }
+
+        // 5. Regex pattern scan (14 Solana vuln patterns, no compilation needed)
+        match analyzers::solana_patterns::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("solana pattern scan failed: {}", e),
+        }
+
+        // 6. Semgrep with p/solana ruleset (semantic AST-based patterns)
+        match analyzers::semgrep_solana::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("semgrep (solana) failed: {}", e),
+        }
+
+        // 7. Soteria static analysis (Solana-specific semantic checks)
+        match analyzers::soteria::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("soteria failed: {}", e),
+        }
+
+        // 8. Anchor IDL constraint checker (mutable unconstrained accounts)
+        match analyzers::anchor_idl::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("anchor idl check failed: {}", e),
+        }
+
+        // 9. Trident fuzzer (Anchor programs only — generates + runs fuzz harnesses)
+        match analyzers::trident_fuzz::run(&source_dir, &tid) {
+            Ok(f) => findings.extend(f),
+            Err(e) => tracing::warn!("trident fuzz failed: {}", e),
+        }
+
+        tracing::info!("solana analysis complete: {} findings", findings.len());
         findings
     })
     .await
