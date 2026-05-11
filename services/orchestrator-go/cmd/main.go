@@ -52,8 +52,9 @@ func main() {
 	storageClient := storage.NewLightClient(cfg.StorageGatewayURL)
 	storageClient.SelfTest(ctx)
 
-	// Initialize disclosure publisher
+	// Initialize disclosure publisher (Cloak sidecar auto-detected from CLOAK_SERVICE_URL)
 	publisher := disclosure.NewPublisher(node, gate, inftClient, storageClient)
+	publisher.SetBountyAmount(cfg.CloakBountyAmountUSDC)
 
 	o := orchestrator.New(node, llmClient, publisher)
 	if err := o.Run(ctx); err != nil {

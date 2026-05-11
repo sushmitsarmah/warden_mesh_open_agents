@@ -22,8 +22,14 @@ An agentic mesh of security bots that autonomously discovers, analyzes, verifies
 │   validator     │            │  (port 9003) │
 │ - C: cluster    │            └──────────────┘
 │ - x402 publish  │
-│ - 0G iNFT record│
-└─────────────────┘
+│ - 0G iNFT record│            ┌──────────────────────┐
+│ - Cloak payout  │───────────▶│  Cloak sidecar (TS)  │
+└─────────────────┘            │  port 4000           │
+                               │  - batch disburse    │
+         ┌─────────────────────│  - viewing keys      │
+         │  audit dashboard    │  - stealth addrs     │
+         │  (Next.js :3100)    └──────────────────────┘
+         └─────────────────────────────────────────────▶ Cloak shielded pool (Solana)
 
 Topics: targets/discovered  |  analysis/findings  |  exploit/verified
 ```
@@ -31,7 +37,7 @@ Topics: targets/discovered  |  analysis/findings  |  exploit/verified
 **Agents:**
 - **Scout** — Watches Ethereum mempool (Sepolia), GitHub commits across EVM + Solana repos, Forta Network alerts, and specific contract/wallet addresses. Emits `Target` messages tagged with `bountyType`.
 - **Auditor** — Consumes targets, runs the appropriate analyzer stack per `bountyType`, emits `Finding` messages.
-- **Orchestrator** — Consumes findings, prompts LLM to generate exploit PoC, runs the appropriate verifier (Foundry fork / Solana test-validator / Firedancer cluster), generates paywalled reports (x402), and records disclosures on 0G iNFT.
+- **Orchestrator** — Consumes findings, prompts LLM to generate exploit PoC, runs the appropriate verifier (Foundry fork / Solana test-validator / Firedancer cluster), generates paywalled reports (x402), disburses bug-bounty rewards via Cloak's shielded pool, and records disclosures on 0G iNFT.
 - **Dashboard** — Terminal UI (Bubble Tea) with live process management, log viewer, and a built-in Config Editor for managing watch lists.
 
 **Mesh:** Gensyn AXL provides topic-based pub/sub across all agents.
@@ -53,6 +59,7 @@ Topics: targets/discovered  |  analysis/findings  |  exploit/verified
 - [Gensyn AXL](https://gensyn.ai) — decentralized mesh messaging
 - [KeeperHub](https://keeperhub.io) — x402 payment gating
 - [0G](https://0g.ai) — iNFT sovereignty & on-chain disclosure tracking
+- [Cloak](https://cloak.network) — private bug-bounty payouts on Solana (shielded pool, batch disbursement, viewing keys)
 
 ---
 
@@ -166,6 +173,11 @@ TRIDENT_FUZZ_SECS=30
 # Optional — KeeperHub x402 production payments
 # KEEPERHUB_API_KEY=...
 
+# Optional — Cloak private bug-bounty payouts (Solana shielded pool)
+# CLOAK_PRIVATE_KEY=<base58-encoded-keypair>
+# CLOAK_SERVICE_URL=http://127.0.0.1:4000
+# CLOAK_BOUNTY_AMOUNT_USDC=5000000   # 5.00 USDC (6 decimal places)
+
 # AXL (Gensyn) mesh — dual-node setup
 # AXL_API_URL_NODE_A=http://127.0.0.1:9002
 # AXL_API_URL_NODE_B=http://127.0.0.1:9003
@@ -232,6 +244,18 @@ cd services/orchestrator-go
 AXL_API_URL_NODE_A=http://127.0.0.1:9002 OPENAI_API_KEY=sk-... go run ./cmd
 ```
 
+**Terminal 6 — Cloak sidecar (optional — enables private bounty payouts):**
+```bash
+make run-cloak
+# Cloak service on http://127.0.0.1:4000
+```
+
+**Terminal 7 — Audit Dashboard (optional — for finance team / auditors):**
+```bash
+make run-audit-dashboard
+# Dashboard on http://localhost:3100
+```
+
 ### 5. Verify the Pipeline Works
 
 **EVM path:**
@@ -283,6 +307,8 @@ make clean                   # Clean build artifacts
 make test-analyzers          # Run Aderyn+Slither test harness
 make test-exploit-gen        # Run LLM exploit generation test
 make build-vulnerable-vault  # Build the Solana deliberate-vuln test fixture
+make run-cloak               # Start Cloak sidecar (port 4000)
+make run-audit-dashboard     # Start Cloak audit dashboard (port 3100)
 ```
 
 ---
@@ -316,6 +342,39 @@ make exploit   # builds program, starts validator, runs PoC
 ### EVM: VulnerableVault.sol
 
 `contracts/src/VulnerableVault.sol` — reentrancy demo contract used to validate the Foundry fork-test verifier.
+
+---
+
+## Private Bounty Payouts (Cloak)
+
+Every bug-bounty payment on Solana is publicly visible by default — amount, recipient wallet, and timestamp are permanently indexed. Cloak closes this gap with a UTXO shielded pool and client-side Groth16 proofs.
+
+**How it works in the swarm:**
+
+1. A finding is verified → `disclosure.Publisher.Publish()` fires
+2. Orchestrator calls the Cloak sidecar to generate a **stealth address** for the researcher (their real wallet never appears on-chain)
+3. A **shielded batch disbursement** transfers USDC to that address — amount hidden, sender hidden
+4. A **viewing key** is issued for the protocol's finance team and its ID is attached to the `Disclosure` message and recorded on the 0G iNFT
+5. The finance team opens the **Audit Dashboard** (`http://localhost:3100`), enters the key ID, and sees the full decrypted history — with CSV/JSON export
+
+**Viewing key scopes:**
+
+| Scope | Visible fields | Use case |
+|---|---|---|
+| `full` | Amount + addresses + timestamp | Internal finance team |
+| `amounts_only` | Amount + timestamp only | External auditor |
+| `time_limited` | Full but expires at a set time | Regulatory request |
+
+**Cloak SDK capabilities used:**
+
+| Capability | Where |
+|---|---|
+| Private transfer (USDC/USDT/SOL) | Every payout via batch disbursement |
+| Batch disbursement | Single shielded tx fans out to all recipients |
+| Stealth addresses | Researcher receive address — never linked to real wallet |
+| Viewing keys | Protocol finance team, external auditor, time-limited regulator key |
+
+See `CLOAK_INTEGRATION.md` for the full architecture and swap instructions for the real SDK.
 
 ---
 
@@ -356,6 +415,7 @@ Configured in `services/scout-go/configs/repos.yaml`.
 | 0G iNFT Recording | ✅ Complete | Records disclosure + storage hash on-chain |
 | Dashboard TUI | ✅ Complete | Process manager, log viewer, config editor |
 | Test Fixtures | ✅ Complete | Solana: 8-vuln Anchor program + PoC; EVM: VulnerableVault.sol |
+| Cloak Private Payouts | ✅ Complete | Shielded batch disbursement + viewing keys + stealth addresses + audit dashboard |
 | Differential Check | ⚠️ Stub | Always passes; set `ENABLE_DIFFERENTIAL=true` to activate |
 | Rescue Lane | 🚫 Disabled | Intentionally off (requires multisig) |
 
@@ -369,6 +429,7 @@ Configured in `services/scout-go/configs/repos.yaml`.
 - `X402_INTEGRATION.md` — Payment gating setup
 - `docs/threat-model.md` — Security assumptions
 - `docs/adevar-labs-checklist.md` — DeFi pre-launch security checklist coverage mapping
+- `CLOAK_INTEGRATION.md` — Private bounty payout architecture and SDK swap guide
 - `bounties/firedancer.yaml` — Firedancer bounty manifest
 - `bounties/solana_programs.yaml` — Solana program bounty manifest
 - `prompts/exploit_v1.md` — EVM exploit LLM prompt

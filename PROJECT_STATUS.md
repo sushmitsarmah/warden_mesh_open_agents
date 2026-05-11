@@ -31,6 +31,7 @@
 | 0G iNFT Recording | ✅ Complete | On-chain disclosure + storage hash |
 | Dashboard TUI | ✅ Complete | Process manager, log viewer, config editor, dual AXL launcher |
 | Test Fixtures (Solana) | ✅ Complete | Deliberate-vuln Anchor program + TypeScript PoC; `make build-vulnerable-vault` |
+| Cloak Private Payouts | ✅ Complete | Sidecar (TS/Express), Go client, audit dashboard (Next.js); stub SDK until package ships |
 | Differential Check | ⚠️ Stub | Always returns `true`; opt-in via `ENABLE_DIFFERENTIAL=true` |
 | Rescue Lane | 🚫 Disabled | Requires multisig authorization — intentionally off |
 
@@ -76,6 +77,33 @@
 - `soteria.rs` — `sot check --json`; Solana-specific semantic static analysis
 - `anchor_idl.rs` — builds Anchor IDL, flags mutable unconstrained accounts and signer-on-PDA mistakes
 - `trident_fuzz.rs` — `trident fuzz run-hfuzz`; auto-generates fuzz harnesses from Anchor IDL; detects crashes, panics, and unexpected errors
+
+### Cloak Private Payouts (TypeScript + Go)
+
+**`services/cloak-ts/`** — Express sidecar wrapping Cloak SDK (port 4000):
+- `src/cloak-client.ts` — SDK wrapper; tries real SDK, falls back to stub; swap with `yarn add @cloak-network/sdk`
+- `src/sdk-types.ts` — `ICloakSDK` interface the real SDK must satisfy
+- `src/sdk-stub.ts` — fully functional in-memory stub for dev/CI
+- `src/routes/payout.ts` — `POST /payout`: batch disbursement + viewing key issuance; idempotent by `findingId`
+- `src/routes/viewing-key.ts` — CRUD for viewing keys; raw key only via `/raw` sub-path
+- `src/routes/audit.ts` — decrypt history by stored key or raw key; CSV/JSON export; stealth address gen
+
+**`services/cloak-ts/audit-dashboard/`** — Next.js compliance UI (port 3100):
+- Input Key ID or raw viewing key → decrypt shielded transaction history
+- Scope badge: FULL AUDIT / AMOUNTS ONLY / TIME-LIMITED
+- Per-transaction: timestamp, type, amount, finding ID, shielded addresses, tx signature
+- Export CSV and JSON; generate researcher stealth addresses
+- Production build clean: `yarn build` passes, all 3 API routes server-rendered on demand
+
+**`services/orchestrator-go/internal/cloak/client.go`** — Go HTTP client:
+- `IsAvailable()` — soft ping; sidecar absence never crashes the pipeline
+- `GenerateStealthAddress()` — one-time researcher receive address (real wallet never on-chain)
+- `PayBounty()` — fires batch disbursement; returns `PayoutResult` with tx signature + viewing key ID
+
+**Pipeline integration** (`disclosure/publish.go`):
+- After x402 report creation: generates stealth address → batch disburses USDC → attaches `CloakTxSignature` + `CloakViewingKeyID` to `Disclosure` message
+- Fully graceful: if sidecar down, logs warning and continues without shielded payout
+- `Disclosure` message struct extended with `CloakTxSignature` and `CloakViewingKeyID` fields
 
 ### Orchestrator (Go)
 - LLM client (OpenAI-compatible, multi-provider)
@@ -187,6 +215,16 @@ Based on the Adevar Labs DeFi Pre-Launch Security Checklist (2026 Edition). See 
 
 ## Recently Completed
 
+### Cloak Private Bounty Payouts (2026-05-11)
+- **`services/cloak-ts/`** — TypeScript sidecar (Express + Cloak SDK wrapper): batch disbursement, stealth addresses, scoped viewing keys, CSV/JSON audit export
+- **`services/cloak-ts/audit-dashboard/`** — Next.js compliance dashboard; `yarn build` passes; input key ID or raw key → decrypted history with export; scope-aware (full/amounts-only/time-limited)
+- **`services/orchestrator-go/internal/cloak/client.go`** — Go HTTP client with graceful fallback
+- **`disclosure/publish.go`** — integrated into pipeline; every verified finding now triggers a private shielded payout (when sidecar available) and attaches `CloakTxSignature` + `CloakViewingKeyID` to the `Disclosure` message
+- **`pkg/messages/messages.go`** — `Disclosure` struct extended with Cloak fields
+- **`CLOAK_INTEGRATION.md`** — full architecture, viewing key scope guide, SDK swap instructions
+- Env vars: `CLOAK_PRIVATE_KEY`, `CLOAK_SERVICE_URL`, `CLOAK_BOUNTY_AMOUNT_USDC`
+- Makefile: `make run-cloak`, `make run-audit-dashboard`
+
 ### Solana Vulnerable Vault Test Fixture (2026-05-11)
 - Added `test-fixtures/solana/vulnerable-vault/` — fully runnable Anchor workspace for pipeline testing
 - **Program** (`lib.rs`): 8 deliberate vulnerabilities covering every class the Solana analyzer detects
@@ -237,6 +275,8 @@ make roundtrip               # Test Go ↔ Rust schema
 make run-dashboard           # Launch terminal dashboard
 make clean                   # Clean all build artifacts
 make build-vulnerable-vault  # Build the deliberate-vuln Anchor test fixture
+make run-cloak               # Start Cloak sidecar (port 4000)
+make run-audit-dashboard     # Start Cloak audit dashboard (port 3100)
 ```
 
 ## Environment Setup

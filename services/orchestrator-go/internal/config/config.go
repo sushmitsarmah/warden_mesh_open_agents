@@ -25,6 +25,11 @@ type Config struct {
 	SealedLLMBaseURL string
 	SealedLLMKey     string
 	SealedLLMModel   string
+
+	// Cloak private payout sidecar — optional
+	// If unset the disclosure pipeline skips shielded payouts gracefully.
+	CloakServiceURL      string
+	CloakBountyAmountUSDC int64  // default disbursement per verified finding (USDC base units)
 }
 
 func Load() (*Config, error) {
@@ -43,6 +48,13 @@ func Load() (*Config, error) {
 	sealedURL := firstEnvValue("SEALED_LLM_BASE_URL", "ZG_SERVICE_URL")
 	sealedModel := os.Getenv("SEALED_LLM_MODEL")
 
+	cloakAmount := int64(5_000_000) // default 5 USDC (6 decimals)
+	if v := os.Getenv("CLOAK_BOUNTY_AMOUNT_USDC"); v != "" {
+		if n, err := fmt.Sscanf(v, "%d", &cloakAmount); n != 1 || err != nil {
+			cloakAmount = 5_000_000
+		}
+	}
+
 	c := &Config{
 		MainnetRPC:          os.Getenv("MAINNET_RPC_URL"),
 		LLMBaseURL:          baseURL,
@@ -57,6 +69,8 @@ func Load() (*Config, error) {
 		SealedLLMBaseURL:    sealedURL,
 		SealedLLMKey:        sealedKey,
 		SealedLLMModel:      sealedModel,
+		CloakServiceURL:        os.Getenv("CLOAK_SERVICE_URL"),
+		CloakBountyAmountUSDC:  cloakAmount,
 	}
 
 	if c.MainnetRPC == "" {

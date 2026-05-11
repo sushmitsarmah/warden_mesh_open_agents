@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/local/swarm/orchestrator/internal/cloak"
 	"github.com/local/swarm/orchestrator/internal/inft"
 	"github.com/local/swarm/orchestrator/internal/storage"
 	"github.com/local/swarm/orchestrator/internal/x402"
@@ -17,21 +18,34 @@ import (
 )
 
 type Publisher struct {
-	node          *axl.Node
-	paymentGate   *x402.Gate
-	inftRecorder  inft.Recorder
-	storageClient *storage.LightClient
-	defaultPrice  float64
+	node            *axl.Node
+	paymentGate     *x402.Gate
+	inftRecorder    inft.Recorder
+	storageClient   *storage.LightClient
+	cloakClient     *cloak.Client
+	defaultPrice    float64
+	bountyAmountUSDC int64
 }
 
-func NewPublisher(node *axl.Node, gate *x402.Gate, recorder inft.Recorder, storageClient *storage.LightClient) *Publisher {
+func NewPublisher(
+	node *axl.Node,
+	gate *x402.Gate,
+	recorder inft.Recorder,
+	storageClient *storage.LightClient,
+) *Publisher {
 	return &Publisher{
-		node:          node,
-		paymentGate:   gate,
-		inftRecorder:  recorder,
-		storageClient: storageClient,
-		defaultPrice:  1000.0,
+		node:             node,
+		paymentGate:      gate,
+		inftRecorder:     recorder,
+		storageClient:    storageClient,
+		cloakClient:      cloak.NewClient(),
+		defaultPrice:     1000.0,
+		bountyAmountUSDC: 5_000_000, // 5 USDC default; overridden via SetBountyAmount
 	}
+}
+
+func (p *Publisher) SetBountyAmount(amountUSDC int64) {
+	p.bountyAmountUSDC = amountUSDC
 }
 
 func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploit, teaserPath, fullPath string) error {
@@ -60,6 +74,52 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		PublishedAt: time.Now().UTC(),
 	}
 
+	// ── Cloak private payout ───────────────────────────────────────────────
+	// If the Cloak sidecar is running, disburse the bounty reward as a shielded
+	// batch payment and attach the viewing key ID to the disclosure record so
+	// the protocol's finance team can audit via the Cloak Audit Dashboard.
+	if p.cloakClient.IsAvailable(ctx) {
+		stealthAddr, stealthErr := p.cloakClient.GenerateStealthAddress(ctx)
+		if stealthErr != nil {
+			slog.Warn("cloak: could not generate stealth address, skipping payout", "err", stealthErr)
+		} else {
+			payoutReq := cloak.PayoutRequest{
+				FindingID: exploit.FindingID,
+				Recipients: []cloak.PayoutRecipient{
+					{
+						StealthAddress: stealthAddr,
+						AmountUsdc:     p.bountyAmountUSDC,
+						Label:          fmt.Sprintf("Bounty for finding %s", exploit.FindingID),
+					},
+				},
+				Mint:               cloak.MintUSDC,
+				GenerateViewingKey: true,
+				ViewingKeyLabel:    fmt.Sprintf("Audit — finding %s", exploit.FindingID),
+				ViewingKeyScope:    cloak.ScopeFull,
+			}
+
+			result, payErr := p.cloakClient.PayBounty(ctx, payoutReq)
+			if payErr != nil {
+				slog.Error("cloak payout failed", "finding_id", exploit.FindingID, "err", payErr)
+			} else if result != nil {
+				d.CloakTxSignature = result.TxSignature
+				if result.ViewingKey != nil {
+					d.CloakViewingKeyID = result.ViewingKey.ID
+				}
+				slog.Info("cloak bounty disbursed",
+					"finding_id", exploit.FindingID,
+					"tx", result.TxSignature,
+					"amount_usdc", result.TotalAmountUSDC,
+					"viewing_key_id", d.CloakViewingKeyID,
+				)
+			}
+		}
+	} else {
+		slog.Info("cloak service not available — skipping private payout",
+			"service_url", os.Getenv("CLOAK_SERVICE_URL"))
+	}
+	// ── end Cloak ──────────────────────────────────────────────────────────
+
 	slog.Info("publishing disclosure",
 		"disclosure_id", d.ID,
 		"exploit_id", exploit.ID,
@@ -68,6 +128,8 @@ func (p *Publisher) Publish(ctx context.Context, exploit messages.VerifiedExploi
 		"x402_url", report.PaymentURL,
 		"storage_hash", storageHash,
 		"price_usd", p.defaultPrice,
+		"cloak_tx", d.CloakTxSignature,
+		"cloak_viewing_key", d.CloakViewingKeyID,
 	)
 
 	if p.inftRecorder != nil {

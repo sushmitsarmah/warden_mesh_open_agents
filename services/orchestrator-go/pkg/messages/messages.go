@@ -63,4 +63,10 @@ type Disclosure struct {
 	TxHash      string    `json:"txHash,omitempty"`
 	StorageHash string    `json:"storageHash,omitempty"`
 	PublishedAt time.Time `json:"publishedAt"`
+
+	// Cloak private payout fields — set when a shielded bounty payment was made.
+	// CloakTxSignature is the Solana tx ID of the shielded disbursement.
+	// CloakViewingKeyID is the key the protocol finance team uses to audit.
+	CloakTxSignature  string `json:"cloakTxSignature,omitempty"`
+	CloakViewingKeyID string `json:"cloakViewingKeyId,omitempty"`
 }
